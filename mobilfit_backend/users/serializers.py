@@ -46,3 +46,16 @@ class UserLoginSerializer(serializers.Serializer):
             'access': access_token,
             'refresh': refresh_token
         }
+
+
+class UserLogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+    def validate(self, attrs):
+        refresh_token = attrs.get("refresh")
+
+        deleted, _ = UserToken.objects.filter(refresh_token=refresh_token).delete()
+        if deleted == 0:
+            raise serializers.ValidationError("유효하지 않은 토큰입니다.")
+
+        return {}
