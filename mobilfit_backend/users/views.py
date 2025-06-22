@@ -15,11 +15,14 @@ class SignupView(APIView):
                 result={"username": user.username, "nickname": user.nickname},
                 message="회원가입이 완료되었습니다."
             ))
-        else:
-            return Response(error_response(
-                message="입력값이 유효하지 않습니다.",
-                error_code="VALIDATION_ERROR",
-            ), status=400)
+
+        first_error_message = next(iter(serializer.errors.values()))[0]
+
+        return Response(error_response(
+            message=first_error_message,
+            error_code="VALIDATION_ERROR"
+        ), status=400)
+
 
 
 class LoginView(APIView):
@@ -68,3 +71,38 @@ class CustomTokenRefreshView(SimpleJWTRefreshView):
                 message="Refresh 토큰이 유효하지 않습니다.",
                 error_code="INVALID_REFRESH_TOKEN"
             ), status=401)
+
+
+class EmailVerificationSendView(APIView):
+    def post(self, request):
+        serializer = EmailVerificationSendSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(success_response(
+                result=None,
+                message="인증 코드가 이메일로 전송되었습니다."
+            ))
+
+
+        first_error = next(iter(serializer.errors.values()))[0]
+        return Response(error_response(
+            message=first_error,
+            error_code="EMAIL_VERIFICATION_FAILED"
+        ), status=400)
+
+    
+
+class EmailVerificationConfirmView(APIView):
+    def post(self, request):
+        serializer = EmailVerificationConfirmSerializer(data=request.data)
+        if serializer.is_valid():
+            return Response(success_response(
+                result=None,
+                message="이메일 인증이 완료되었습니다."
+            ))
+
+        first_error = next(iter(serializer.errors.values()))[0]
+        return Response(error_response(
+            message=first_error,
+            error_code="EMAIL_VERIFICATION_FAILED"
+        ), status=400)
