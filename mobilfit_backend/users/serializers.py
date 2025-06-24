@@ -85,7 +85,6 @@ class UserLogoutSerializer(serializers.Serializer):
         return {}
 
 
-User = get_user_model()
 
 class EmailVerificationSendSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -129,3 +128,19 @@ class EmailVerificationConfirmSerializer(serializers.Serializer):
             raise serializers.ValidationError("인증 코드가 만료되었습니다.")
 
         return attrs
+    
+
+class FindIDSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    email = serializers.EmailField()
+    name = serializers.CharField()
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField()
+    new_password = serializers.CharField(min_length=8)
