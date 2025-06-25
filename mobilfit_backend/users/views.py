@@ -12,7 +12,6 @@ from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from decouple import config
 
-
 User = get_user_model()
 
 class SignupView(APIView):
@@ -193,3 +192,21 @@ class MeView(APIView):
             "email": user.email,
             "nickname": user.nickname
         }))
+
+
+class MyPageView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        user_data = user.data
+
+        return Response(success_response(
+            result={
+                "nickname": user.nickname,
+                "ride_score": user_data.ride_score,
+                "app_usage_count": user_data.app_usage_count,
+                "total_saved_money": user_data.total_saved_money,
+            },
+            message="마이페이지 정보 조회 성공"
+        ))

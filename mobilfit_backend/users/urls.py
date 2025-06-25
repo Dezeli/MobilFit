@@ -12,4 +12,5 @@ urlpatterns = [
     path("reset-password/", PasswordResetRequestView.as_view(), name="reset-password"),
     path("change-password/", PasswordChangeView.as_view(), name="change-password"),
     path("me/", MeView.as_view(), name="me"),
+    path('user/mypage/', MyPageView.as_view(), name='user-mypage'),
 ]

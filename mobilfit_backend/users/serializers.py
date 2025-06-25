@@ -6,7 +6,6 @@ from utils.email import *
 from django.utils import timezone
 from datetime import timedelta
 
-
 User = get_user_model()
 
 
@@ -39,14 +38,17 @@ class UserSignupSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        return User.objects.create_user(
+        user = User.objects.create_user(
             username=validated_data['username'],
             password=validated_data['password'],
             nickname=validated_data['nickname'],
             email=validated_data['email']
         )
 
+        UserData.objects.create(user=user)
 
+        return user
+    
 
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
@@ -63,13 +65,21 @@ class UserLoginSerializer(serializers.Serializer):
         refresh = RefreshToken.for_user(user)
         access_token = str(refresh.access_token)
         refresh_token = str(refresh)
+        expired_at = timezone.now() + timedelta(days=90)
 
-        UserToken.objects.create(user=user, refresh_token=refresh_token)
+        UserToken.objects.update_or_create(
+            user=user,
+            defaults={
+                'refresh_token': refresh_token,
+                'expired_at': expired_at
+            }
+        )
 
         return {
             'access': access_token,
             'refresh': refresh_token
         }
+
 
 
 class UserLogoutSerializer(serializers.Serializer):

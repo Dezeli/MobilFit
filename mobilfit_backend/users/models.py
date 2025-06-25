@@ -20,9 +20,9 @@ class UserToken(models.Model):
 
 class UserData(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='data')
-    ride_score = models.IntegerField(default=0)  # 자전거 운행 점수
+    ride_score = models.IntegerField(default=80)  # 자전거 운행 점수
     app_usage_count = models.IntegerField(default=0)  # 앱 활용 횟수
-    total_saved_money = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # 절약 금액 (원화)
+    total_saved_money = models.IntegerField(default=0)  # 절약 금액 (원화)
 
     updated_at = models.DateTimeField(auto_now=True)
 
