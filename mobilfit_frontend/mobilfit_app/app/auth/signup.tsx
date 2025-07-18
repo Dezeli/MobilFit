@@ -1,41 +1,82 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert } from "react-native";
-import { useAuth } from "../../contexts/AuthContext";
-import { Redirect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
+import { apiPost } from "../../lib/api";
 
 export default function SignupScreen() {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+
   const [email, setEmail] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailCode, setEmailCode] = useState("");
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [nickname, setNickname] = useState("");
   const [loading, setLoading] = useState(false);
 
-  if (isAuthenticated) {
-    return <Redirect href="/" />;
-  }
-
-  const handleSignup = async () => {
-    if (!email || !password) {
-      Alert.alert("에러", "이메일과 비밀번호를 입력하세요.");
+  // 인증 코드 전송
+  const handleSendCode = async () => {
+    if (!email) {
+      Alert.alert("에러", "이메일을 입력하세요.");
       return;
     }
-
-    setLoading(true);
-
+    setSending(true);
     try {
-      // 백엔드 연결 전 Mock 가입 처리
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // 로딩 시뮬레이션
+      await apiPost("/api/v1/auth/email-verify/send/", { email });
+      Alert.alert("성공", "인증 코드가 이메일로 전송되었습니다.");
+    } catch (error: any) {
+      Alert.alert("에러", error.message || "인증 코드 전송 실패");
+    } finally {
+      setSending(false);
+    }
+  };
 
-      Alert.alert(
-        "회원가입 완료",
-        "이메일 인증 후 로그인해주세요."
-      );
+  // 인증 코드 확인
+  const handleVerifyCode = async () => {
+    if (!emailCode) {
+      Alert.alert("에러", "인증 코드를 입력하세요.");
+      return;
+    }
+    setVerifying(true);
+    try {
+      await apiPost("/api/v1/auth/email-verify/confirm/", {
+        email,
+        code: emailCode,
+      });
+      setEmailVerified(true);
+      Alert.alert("성공", "이메일 인증이 완료되었습니다.");
+    } catch (error: any) {
+      Alert.alert("에러", error.message || "인증 실패");
+    } finally {
+      setVerifying(false);
+    }
+  };
 
-      // 로그인 화면으로 이동
+  // 회원가입
+  const handleSignup = async () => {
+    if (!emailVerified) {
+      Alert.alert("에러", "이메일 인증을 완료해주세요.");
+      return;
+    }
+    if (!username || !password || !nickname) {
+      Alert.alert("에러", "모든 항목을 입력하세요.");
+      return;
+    }
+    setLoading(true);
+    try {
+      await apiPost("/api/v1/auth/signup/", {
+        username,
+        password,
+        nickname,
+        email,
+      });
+      Alert.alert("성공", "회원가입이 완료되었습니다.");
       router.replace("/auth/login");
-    } catch (error) {
-      console.log(error);
-      Alert.alert("에러", "회원가입에 실패했습니다.");
+    } catch (error: any) {
+      Alert.alert("에러", error.message || "회원가입 실패");
     } finally {
       setLoading(false);
     }
@@ -59,17 +100,64 @@ export default function SignupScreen() {
         placeholder="이메일"
         value={email}
         onChangeText={setEmail}
-        autoCapitalize="none"
+        editable={!emailVerified}
         keyboardType="email-address"
-        style={{
-          width: "100%",
-          borderWidth: 1,
-          borderColor: "#ccc",
-          borderRadius: 6,
-          padding: 12,
-          marginBottom: 12,
-          color: "#000",
-        }}
+        autoCapitalize="none"
+        style={styles.input}
+      />
+
+      {!emailVerified && (
+        <>
+          <TouchableOpacity
+            onPress={handleSendCode}
+            disabled={sending}
+            style={{
+              backgroundColor: sending ? "#999" : "#007bff",
+              paddingVertical: 12,
+              paddingHorizontal: 24,
+              borderRadius: 6,
+              width: "100%",
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ color: "#fff", textAlign: "center", fontSize: 16 }}>
+              {sending ? "전송 중..." : "인증 코드 보내기"}
+            </Text>
+          </TouchableOpacity>
+
+          <TextInput
+            placeholder="인증 코드"
+            value={emailCode}
+            onChangeText={setEmailCode}
+            keyboardType="numeric"
+            style={styles.input}
+          />
+
+          <TouchableOpacity
+            onPress={handleVerifyCode}
+            disabled={verifying}
+            style={{
+              backgroundColor: verifying ? "#999" : "#28a745",
+              paddingVertical: 12,
+              paddingHorizontal: 24,
+              borderRadius: 6,
+              width: "100%",
+              marginBottom: 20,
+            }}
+          >
+            <Text style={{ color: "#fff", textAlign: "center", fontSize: 16 }}>
+              {verifying ? "확인 중..." : "인증 확인"}
+            </Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      <TextInput
+        placeholder="아이디"
+        value={username}
+        onChangeText={setUsername}
+        autoCapitalize="none"
+        style={styles.input}
       />
 
       <TextInput
@@ -77,15 +165,14 @@ export default function SignupScreen() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
-        style={{
-          width: "100%",
-          borderWidth: 1,
-          borderColor: "#ccc",
-          borderRadius: 6,
-          padding: 12,
-          marginBottom: 20,
-          color: "#000",
-        }}
+        style={styles.input}
+      />
+
+      <TextInput
+        placeholder="닉네임"
+        value={nickname}
+        onChangeText={setNickname}
+        style={styles.input}
       />
 
       <TouchableOpacity
@@ -97,12 +184,25 @@ export default function SignupScreen() {
           paddingHorizontal: 24,
           borderRadius: 6,
           width: "100%",
+          marginTop: 12,
         }}
       >
         <Text style={{ color: "#fff", textAlign: "center", fontSize: 16 }}>
-          {loading ? "가입 중..." : "회원가입"}
+          {loading ? "가입 중..." : "가입하기"}
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+const styles = {
+  input: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    padding: 12,
+    marginBottom: 12,
+    color: "#000",
+  },
+};

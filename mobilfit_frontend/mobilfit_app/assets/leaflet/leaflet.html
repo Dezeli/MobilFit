@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Leaflet Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet/dist/leaflet.css"
+  />
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    var map = L.map('map').setView([37.5665, 126.9780], 13);
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    var startMarker = null;
+    var endMarker = null;
+    var routePolyline = null;
+    var clickCount = 0;
+
+    // React Native로부터 메시지 수신
+    document.addEventListener("message", function(event) {
+      try {
+        var data = JSON.parse(event.data);
+        if (data.type === "drawRoute") {
+          var coords = data.coordinates;
+
+          if (routePolyline) {
+            map.removeLayer(routePolyline);
+          }
+
+          routePolyline = L.polyline(coords.map(c => [c[1], c[0]]), {
+            color: "blue",
+            weight: 4
+          }).addTo(map);
+
+          map.fitBounds(routePolyline.getBounds());
+        }
+      } catch (e) {
+        console.error("메시지 파싱 오류:", e);
+      }
+    });
+
+    map.on('click', function(e) {
+      var lat = e.latlng.lat;
+      var lng = e.latlng.lng;
+
+      clickCount++;
+      if (clickCount === 1) {
+        if (startMarker) {
+          startMarker.setLatLng(e.latlng);
+        } else {
+          startMarker = L.marker(e.latlng, { title: "출발지" }).addTo(map);
+        }
+      } else if (clickCount === 2) {
+        if (endMarker) {
+          endMarker.setLatLng(e.latlng);
+        } else {
+          endMarker = L.marker(e.latlng, { title: "도착지" }).addTo(map);
+        }
+      } else {
+        if (startMarker) {
+          startMarker.setLatLng(e.latlng);
+        } else {
+          startMarker = L.marker(e.latlng, { title: "출발지" }).addTo(map);
+        }
+        if (endMarker) {
+          map.removeLayer(endMarker);
+          endMarker = null;
+        }
+        if (routePolyline) {
+          map.removeLayer(routePolyline);
+          routePolyline = null;
+        }
+        clickCount = 1;
+      }
+
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'mapClick',
+        lat: lat,
+        lng: lng,
+        clickCount: clickCount
+      }));
+    });
+  </script>
+</body>
+</html>
