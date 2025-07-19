@@ -1,26 +1,32 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+import { View, StyleSheet, Alert, Button } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import axios from "axios";
 
 const Explore: React.FC = () => {
   const [startPoint, setStartPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [endPoint, setEndPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [preference, setPreference] = useState<"fastest" | "shortest" | "recommended">("fastest");
   const webViewRef = useRef<any>(null);
 
-  // ORS 경로 요청 함수
   const fetchRoute = async (
     start: { lat: number; lng: number },
-    end: { lat: number; lng: number }
-  ): Promise<number[][] | null> => {
+    end: { lat: number; lng: number },
+    selectedPreference: "fastest" | "shortest" | "recommended"
+  ): Promise<{ coordinates: number[][]; waytypes: number[] } | null> => {
     try {
       const response = await axios.post(
         "http://192.168.0.5:8080/ors/v2/directions/cycling-regular/geojson",
         {
           coordinates: [
             [start.lng, start.lat],
-            [end.lng, end.lat]
-          ]
+            [end.lng, end.lat],
+          ],
+          preference: selectedPreference,
+          instructions: true,
+          geometry_simplify: false,
+          elevation: true,
+          extra_info: ["waytype"],
         },
         {
           headers: {
@@ -30,20 +36,52 @@ const Explore: React.FC = () => {
       );
 
       const data = response.data;
+      const coordinates = data.features?.[0]?.geometry?.coordinates;
+      const waytypeInfo = data.features?.[0]?.properties?.extras?.waytype?.values;
 
-      if (data && data.features && data.features[0]) {
-        return data.features[0].geometry.coordinates;
-      } else {
-        console.error("경로 데이터를 찾을 수 없습니다.");
+      if (!coordinates || !Array.isArray(waytypeInfo)) {
+        console.error("❌ waytype 정보가 없습니다.");
         return null;
       }
+
+      const waytypes = new Array(coordinates.length - 1).fill(0);
+      waytypeInfo.forEach(([startIdx, endIdx, type]: [number, number, number]) => {
+        for (let i = startIdx; i < endIdx; i++) {
+          waytypes[i] = type;
+        }
+      });
+
+      return { coordinates, waytypes };
     } catch (error) {
       console.error("ORS 요청 실패:", error);
       return null;
     }
   };
 
-  // 지도에서 오는 메시지 처리
+  const drawRoute = async (
+    start: { lat: number; lng: number },
+    end: { lat: number; lng: number },
+    selectedPreference: "fastest" | "shortest" | "recommended"
+  ) => {
+    const routeResult = await fetchRoute(start, end, selectedPreference);
+    if (routeResult) {
+      webViewRef.current?.postMessage(
+        JSON.stringify({
+          type: "drawRoute",
+          coordinates: routeResult.coordinates,
+          waytypes: routeResult.waytypes,
+        })
+      );
+    }
+  };
+
+  const handlePreferenceChange = (newPreference: "fastest" | "shortest" | "recommended") => {
+    setPreference(newPreference);
+    if (startPoint && endPoint) {
+      drawRoute(startPoint, endPoint, newPreference);
+    }
+  };
+
   const handleMessage = async (event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
@@ -59,15 +97,7 @@ const Explore: React.FC = () => {
           Alert.alert("도착지 설정", `위도: ${data.lat}\n경도: ${data.lng}`);
 
           if (startPoint) {
-            const route = await fetchRoute(startPoint, clickedPoint);
-            if (route) {
-              webViewRef.current?.postMessage(
-                JSON.stringify({
-                  type: "drawRoute",
-                  coordinates: route
-                })
-              );
-            }
+            drawRoute(startPoint, clickedPoint, preference);
           }
         }
       }
@@ -78,6 +108,11 @@ const Explore: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <View style={styles.buttonContainer}>
+        <Button title="빠른 경로" onPress={() => handlePreferenceChange("fastest")} />
+        <Button title="짧은 경로" onPress={() => handlePreferenceChange("shortest")} />
+        <Button title="추천 경로" onPress={() => handlePreferenceChange("recommended")} />
+      </View>
       <WebView
         ref={webViewRef}
         originWhitelist={["*"]}
@@ -91,6 +126,12 @@ const Explore: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  buttonContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 8,
+    backgroundColor: "#f0f0f0",
   },
 });
 

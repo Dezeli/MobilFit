@@ -4,10 +4,7 @@
   <meta charset="utf-8" />
   <title>Leaflet Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <style>
     html, body, #map {
       height: 100%;
@@ -20,35 +17,41 @@
   <div id="map"></div>
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    var map = L.map('map').setView([37.5665, 126.9780], 13);
+    const map = L.map('map').setView([37.5665, 126.9780], 13);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    var startMarker = null;
-    var endMarker = null;
-    var routePolyline = null;
-    var clickCount = 0;
+    let startMarker = null;
+    let endMarker = null;
+    let polylineGroup = L.layerGroup().addTo(map);
+    let clickCount = 0;
 
-    // React Native로부터 메시지 수신
     document.addEventListener("message", function(event) {
       try {
-        var data = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
         if (data.type === "drawRoute") {
-          var coords = data.coordinates;
+          polylineGroup.clearLayers();
 
-          if (routePolyline) {
-            map.removeLayer(routePolyline);
+          const coords = data.coordinates;
+          const waytypes = data.waytypes;
+
+          for (let i = 0; i < coords.length - 1; i++) {
+            const latlng1 = [coords[i][1], coords[i][0]];
+            const latlng2 = [coords[i + 1][1], coords[i + 1][0]];
+            const color = (waytypes[i] === 6) ? "green" : "blue";
+
+            const segment = L.polyline([latlng1, latlng2], {
+              color: color,
+              weight: 4,
+            });
+
+            polylineGroup.addLayer(segment);
           }
 
-          routePolyline = L.polyline(coords.map(c => [c[1], c[0]]), {
-            color: "blue",
-            weight: 4
-          }).addTo(map);
-
-          map.fitBounds(routePolyline.getBounds());
+          map.fitBounds(polylineGroup.getBounds());
         }
       } catch (e) {
         console.error("메시지 파싱 오류:", e);
@@ -56,8 +59,8 @@
     });
 
     map.on('click', function(e) {
-      var lat = e.latlng.lat;
-      var lng = e.latlng.lng;
+      const lat = e.latlng.lat;
+      const lng = e.latlng.lng;
 
       clickCount++;
       if (clickCount === 1) {
@@ -82,10 +85,7 @@
           map.removeLayer(endMarker);
           endMarker = null;
         }
-        if (routePolyline) {
-          map.removeLayer(routePolyline);
-          routePolyline = null;
-        }
+        polylineGroup.clearLayers();
         clickCount = 1;
       }
 
