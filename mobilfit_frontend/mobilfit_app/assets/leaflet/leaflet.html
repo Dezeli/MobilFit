@@ -5,6 +5,8 @@
   <title>Leaflet Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@here/harp-flexible-polyline/dist/flexiblepolyline.min.js"></script>
   <style>
     html, body, #map {
       height: 100%;
@@ -15,7 +17,6 @@
 </head>
 <body>
   <div id="map"></div>
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
     const map = L.map('map').setView([37.5665, 126.9780], 13);
 
@@ -27,34 +28,73 @@
     let startMarker = null;
     let endMarker = null;
     let polylineGroup = L.layerGroup().addTo(map);
+    let crossingGroup = L.layerGroup().addTo(map);
     let clickCount = 0;
+
+    function decodeFlexiblePolyline(polylineStr) {
+      const result = flexiblepolyline.decode(polylineStr);
+      return result.polyline.map(([lat, lng]) => [lat, lng]);
+    }
 
     document.addEventListener("message", function(event) {
       try {
         const data = JSON.parse(event.data);
+
+        // ✅ drawRoute → 경로 + 자전거도로(waytype=6) 구분
         if (data.type === "drawRoute") {
           polylineGroup.clearLayers();
-
-          const coords = data.coordinates;
+          const coordinates = data.coordinates; // [ [lng, lat], ... ]
           const waytypes = data.waytypes;
 
-          for (let i = 0; i < coords.length - 1; i++) {
-            const latlng1 = [coords[i][1], coords[i][0]];
-            const latlng2 = [coords[i + 1][1], coords[i + 1][0]];
-            const color = (waytypes[i] === 6) ? "green" : "blue";
+          for (let i = 0; i < coordinates.length - 1; i++) {
+            const [lng1, lat1] = coordinates[i];
+            const [lng2, lat2] = coordinates[i + 1];
+            const waytype = waytypes[i];
 
-            const segment = L.polyline([latlng1, latlng2], {
-              color: color,
+            const color = waytype === 6 ? "green" : "blue";
+
+            const segment = L.polyline([[lat1, lng1], [lat2, lng2]], {
+              color,
               weight: 4,
             });
 
             polylineGroup.addLayer(segment);
           }
 
-          map.fitBounds(polylineGroup.getBounds());
+          const latlngs = coordinates.map(([lng, lat]) => [lat, lng]);
+          map.fitBounds(L.latLngBounds(latlngs));
         }
+
+        // ✅ drawCrossings → 횡단보도 마커 표시
+        if (data.type === "drawCrossings") {
+          crossingGroup.clearLayers();
+
+          data.crossings.forEach(({ lat, lng }) => {
+            L.circleMarker([lat, lng], {
+              radius: 6,
+              color: "orange",
+              fillColor: "yellow",
+              fillOpacity: 0.9,
+            }).addTo(crossingGroup);
+          });
+        }
+
+        // (기존) flexible polyline 처리
+        if (data.type === "drawPolyline") {
+          polylineGroup.clearLayers();
+          const coords = decodeFlexiblePolyline(data.polyline);
+          const latlngs = coords.map(([lat, lng]) => [lat, lng]);
+
+          const polyline = L.polyline(latlngs, {
+            color: "blue",
+            weight: 4,
+          });
+          polylineGroup.addLayer(polyline);
+          map.fitBounds(polyline.getBounds());
+        }
+
       } catch (e) {
-        console.error("메시지 파싱 오류:", e);
+        console.error("메시지 처리 오류:", e);
       }
     });
 
@@ -64,28 +104,17 @@
 
       clickCount++;
       if (clickCount === 1) {
-        if (startMarker) {
-          startMarker.setLatLng(e.latlng);
-        } else {
-          startMarker = L.marker(e.latlng, { title: "출발지" }).addTo(map);
-        }
+        startMarker?.setLatLng(e.latlng) || (startMarker = L.marker(e.latlng, { title: "출발지" }).addTo(map));
       } else if (clickCount === 2) {
-        if (endMarker) {
-          endMarker.setLatLng(e.latlng);
-        } else {
-          endMarker = L.marker(e.latlng, { title: "도착지" }).addTo(map);
-        }
+        endMarker?.setLatLng(e.latlng) || (endMarker = L.marker(e.latlng, { title: "도착지" }).addTo(map));
       } else {
-        if (startMarker) {
-          startMarker.setLatLng(e.latlng);
-        } else {
-          startMarker = L.marker(e.latlng, { title: "출발지" }).addTo(map);
-        }
+        startMarker?.setLatLng(e.latlng) || (startMarker = L.marker(e.latlng, { title: "출발지" }).addTo(map));
         if (endMarker) {
           map.removeLayer(endMarker);
           endMarker = null;
         }
         polylineGroup.clearLayers();
+        crossingGroup.clearLayers();
         clickCount = 1;
       }
 

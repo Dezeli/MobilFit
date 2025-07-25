@@ -2,6 +2,10 @@ import React, { useState, useRef } from "react";
 import { View, StyleSheet, Alert, Button } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import axios from "axios";
+import Constants from "expo-constants";
+import { getDistance } from "geolib";
+
+const ORS_API_KEY = Constants.expoConfig?.extra?.orsApiKey;
 
 const Explore: React.FC = () => {
   const [startPoint, setStartPoint] = useState<{ lat: number; lng: number } | null>(null);
@@ -14,9 +18,14 @@ const Explore: React.FC = () => {
     end: { lat: number; lng: number },
     selectedPreference: "fastest" | "shortest" | "recommended"
   ): Promise<{ coordinates: number[][]; waytypes: number[] } | null> => {
+    if (!ORS_API_KEY) {
+      console.error("❌ ORS API 키가 설정되지 않았습니다.");
+      return null;
+    }
+
     try {
       const response = await axios.post(
-        "http://192.168.0.5:8080/ors/v2/directions/cycling-regular/geojson",
+        "https://api.openrouteservice.org/v2/directions/cycling-regular/geojson",
         {
           coordinates: [
             [start.lng, start.lat],
@@ -31,6 +40,7 @@ const Explore: React.FC = () => {
         {
           headers: {
             "Content-Type": "application/json",
+            Authorization: ORS_API_KEY,
           },
         }
       );
@@ -58,6 +68,85 @@ const Explore: React.FC = () => {
     }
   };
 
+  const getBBoxFromCoordinates = (coords: number[][]): [number, number, number, number] => {
+    let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+
+    coords.forEach(([lng, lat]) => {
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+    });
+
+    return [minLat, minLng, maxLat, maxLng]; // south, west, north, east
+  };
+
+  const fetchCrossingsInBBox = async (bbox: [number, number, number, number]) => {
+    const [south, west, north, east] = bbox;
+
+    const query = `
+      [out:json];
+      (
+        node["highway"="crossing"](${south},${west},${north},${east});
+      );
+      out body;
+    `;
+
+    const url = "https://overpass-api.de/api/interpreter";
+
+    try {
+      const response = await axios.post(url, query, {
+        headers: { "Content-Type": "text/plain" },
+      });
+
+      return response.data?.elements || [];
+    } catch (err) {
+      console.error("❌ Overpass API 오류:", err);
+      return [];
+    }
+  };
+
+  const filterNearbyCrossings = (
+    crossings: { lat: number; lon: number }[],
+    routeCoords: number[][],
+    threshold = 10
+  ): { lat: number; lng: number }[] => {
+    return crossings
+      .filter((crossing) =>
+        routeCoords.some(([lng, lat]) => {
+          const dist = getDistance(
+            { latitude: crossing.lat, longitude: crossing.lon },
+            { latitude: lat, longitude: lng }
+          );
+          return dist <= threshold;
+        })
+      )
+      .map((c) => ({ lat: c.lat, lng: c.lon }));
+  };
+
+  const deduplicateCloseCrossings = (
+    crossings: { lat: number; lng: number }[],
+    threshold = 5
+  ): { lat: number; lng: number }[] => {
+    const clusters: { lat: number; lng: number }[] = [];
+
+    crossings.forEach((crossing) => {
+      const isMerged = clusters.some((c) => {
+        const dist = getDistance(
+          { latitude: c.lat, longitude: c.lng },
+          { latitude: crossing.lat, longitude: crossing.lng }
+        );
+        return dist <= threshold;
+      });
+
+      if (!isMerged) {
+        clusters.push(crossing);
+      }
+    });
+
+    return clusters;
+  };
+
   const drawRoute = async (
     start: { lat: number; lng: number },
     end: { lat: number; lng: number },
@@ -65,11 +154,25 @@ const Explore: React.FC = () => {
   ) => {
     const routeResult = await fetchRoute(start, end, selectedPreference);
     if (routeResult) {
+      const { coordinates, waytypes } = routeResult;
+
       webViewRef.current?.postMessage(
         JSON.stringify({
           type: "drawRoute",
-          coordinates: routeResult.coordinates,
-          waytypes: routeResult.waytypes,
+          coordinates,
+          waytypes,
+        })
+      );
+
+      const bbox = getBBoxFromCoordinates(coordinates);
+      const rawCrossings = await fetchCrossingsInBBox(bbox);
+      const filtered = filterNearbyCrossings(rawCrossings, coordinates);
+      const deduped = deduplicateCloseCrossings(filtered);
+
+      webViewRef.current?.postMessage(
+        JSON.stringify({
+          type: "drawCrossings",
+          crossings: deduped,
         })
       );
     }
