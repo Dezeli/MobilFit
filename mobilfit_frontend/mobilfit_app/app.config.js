@@ -2,11 +2,11 @@ import 'dotenv/config';
 
 export default {
   expo: {
-    name: 'YourAppName',
-    slug: 'your-app-slug',
-    // 생략...
+    name: 'Mobilfit',
+    slug: 'DAECOM',
     extra: {
       orsApiKey: process.env.ORS_API_KEY,
+      googleApiKey: process.env.GOOGLE_API_KEY,
     },
   },
 };

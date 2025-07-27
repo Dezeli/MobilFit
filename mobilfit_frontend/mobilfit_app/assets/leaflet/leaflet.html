@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Leaflet Map</title>
+  <title>MobilFit 자전거 경로 지도</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -12,50 +12,99 @@
       height: 100%;
       margin: 0;
       padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .leaflet-container {
+      background: #f8f9fa;
+    }
+    
+    .leaflet-control-zoom {
+      display: none !important;
+    }
+    
+    .leaflet-control-attribution {
+      background: rgba(255,255,255,0.8) !important;
+      backdrop-filter: blur(10px) !important;
+      border-radius: 4px !important;
+      margin: 10px !important;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
+
   <script>
+    // 지도 초기화 (서울 중심) - 줌 컨트롤 제거
     const map = L.map('map').setView([37.5665, 126.9780], 13);
 
+    // 타일 레이어
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; OpenStreetMap | MobilFit'
     }).addTo(map);
 
+    // 전역 변수
     let startMarker = null;
     let endMarker = null;
     let polylineGroup = L.layerGroup().addTo(map);
     let crossingGroup = L.layerGroup().addTo(map);
     let clickCount = 0;
+    let isRouteFixed = false; // 경로 고정 상태 추가
 
+    // 커스텀 마커 아이콘 - 크기 축소
+    const startIcon = L.icon({
+      iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 41">
+          <path fill="#4CAF50" stroke="#ffffff" stroke-width="2" d="M12.5,0C5.596,0,0,5.596,0,12.5c0,12.5,12.5,28.5,12.5,28.5s12.5-16,12.5-28.5C25,5.596,19.404,0,12.5,0z"/>
+          <circle fill="#ffffff" cx="12.5" cy="12.5" r="6"/>
+        </svg>
+      `),
+      iconSize: [20, 33],
+      iconAnchor: [10, 33],
+      popupAnchor: [1, -28]
+    });
+
+    const endIcon = L.icon({
+      iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 41">
+          <path fill="#FF5722" stroke="#ffffff" stroke-width="2" d="M12.5,0C5.596,0,0,5.596,0,12.5c0,12.5,12.5,28.5,12.5,28.5s12.5-16,12.5-28.5C25,5.596,19.404,0,12.5,0z"/>
+          <circle fill="#ffffff" cx="12.5" cy="12.5" r="6"/>
+        </svg>
+      `),
+      iconSize: [20, 33],
+      iconAnchor: [10, 33],
+      popupAnchor: [1, -28]
+    });
+
+    // Flexible Polyline 디코딩 함수
     function decodeFlexiblePolyline(polylineStr) {
       const result = flexiblepolyline.decode(polylineStr);
       return result.polyline.map(([lat, lng]) => [lat, lng]);
     }
 
+    // 메시지 처리 - 원래 방식으로 복원
     document.addEventListener("message", function(event) {
       try {
         const data = JSON.parse(event.data);
 
-        // ✅ drawRoute → 경로 + 자전거도로(waytype=6) 구분
+        // 경로 그리기 - 원래 방식
         if (data.type === "drawRoute") {
           polylineGroup.clearLayers();
-          const coordinates = data.coordinates; // [ [lng, lat], ... ]
+          const coordinates = data.coordinates;
           const waytypes = data.waytypes;
 
           for (let i = 0; i < coordinates.length - 1; i++) {
             const [lng1, lat1] = coordinates[i];
             const [lng2, lat2] = coordinates[i + 1];
             const waytype = waytypes[i];
-
-            const color = waytype === 6 ? "green" : "blue";
+            const color = waytype === 6 ? "#4CAF50" : "#2196F3";
+            const weight = waytype === 6 ? 6 : 4;
 
             const segment = L.polyline([[lat1, lng1], [lat2, lng2]], {
               color,
-              weight: 4,
+              weight: weight,
+              opacity: 0.8
             });
 
             polylineGroup.addLayer(segment);
@@ -63,34 +112,73 @@
 
           const latlngs = coordinates.map(([lng, lat]) => [lat, lng]);
           map.fitBounds(L.latLngBounds(latlngs));
+          
+          // 경로가 그려지면 고정 상태로 설정
+          isRouteFixed = true;
         }
 
-        // ✅ drawCrossings → 횡단보도 마커 표시
+        // 횡단보도 마커 그리기
         if (data.type === "drawCrossings") {
           crossingGroup.clearLayers();
 
           data.crossings.forEach(({ lat, lng }) => {
-            L.circleMarker([lat, lng], {
-              radius: 6,
-              color: "orange",
-              fillColor: "yellow",
-              fillOpacity: 0.9,
-            }).addTo(crossingGroup);
+            const trafficLightIcon = L.divIcon({
+              className: 'traffic-light-marker',
+              html: `<div style="
+                background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+                color: white;
+                width: 12px;
+                height: 20px;
+                border-radius: 2px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: space-around;
+                border: 1px solid white;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+                padding: 1px;
+              ">
+                <div style="width: 5px; height: 5px; background: #e74c3c; border-radius: 50%;"></div>
+                <div style="width: 5px; height: 5px; background: #f39c12; border-radius: 50%;"></div>
+                <div style="width: 5px; height: 5px; background: #27ae60; border-radius: 50%;"></div>
+              </div>`,
+              iconSize: [14, 22],
+              iconAnchor: [7, 22]
+            });
+
+            L.marker([lat, lng], { icon: trafficLightIcon }).addTo(crossingGroup);
           });
         }
 
-        // (기존) flexible polyline 처리
+        // Flexible polyline 처리
         if (data.type === "drawPolyline") {
           polylineGroup.clearLayers();
           const coords = decodeFlexiblePolyline(data.polyline);
           const latlngs = coords.map(([lat, lng]) => [lat, lng]);
 
           const polyline = L.polyline(latlngs, {
-            color: "blue",
-            weight: 4,
+            color: "#4CAF50",
+            weight: 5,
+            opacity: 0.8
           });
           polylineGroup.addLayer(polyline);
           map.fitBounds(polyline.getBounds());
+        }
+
+        // 경로 초기화
+        if (data.type === "clearRoute") {
+          polylineGroup.clearLayers();
+          crossingGroup.clearLayers();
+          if (startMarker) {
+            map.removeLayer(startMarker);
+            startMarker = null;
+          }
+          if (endMarker) {
+            map.removeLayer(endMarker);
+            endMarker = null;
+          }
+          clickCount = 0;
+          isRouteFixed = false; // 고정 상태 해제
         }
 
       } catch (e) {
@@ -98,17 +186,33 @@
       }
     });
 
+    // 지도 클릭 이벤트 - 원래 방식
     map.on('click', function(e) {
+      // 경로가 고정된 상태에서는 클릭 무시
+      if (isRouteFixed) {
+        console.log('Route is fixed, ignoring map click');
+        return;
+      }
+
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
 
       clickCount++;
       if (clickCount === 1) {
-        startMarker?.setLatLng(e.latlng) || (startMarker = L.marker(e.latlng, { title: "출발지" }).addTo(map));
+        startMarker?.setLatLng(e.latlng) || (startMarker = L.marker(e.latlng, { 
+          icon: startIcon, 
+          title: "출발지" 
+        }).addTo(map));
       } else if (clickCount === 2) {
-        endMarker?.setLatLng(e.latlng) || (endMarker = L.marker(e.latlng, { title: "도착지" }).addTo(map));
+        endMarker?.setLatLng(e.latlng) || (endMarker = L.marker(e.latlng, { 
+          icon: endIcon, 
+          title: "도착지" 
+        }).addTo(map));
       } else {
-        startMarker?.setLatLng(e.latlng) || (startMarker = L.marker(e.latlng, { title: "출발지" }).addTo(map));
+        startMarker?.setLatLng(e.latlng) || (startMarker = L.marker(e.latlng, { 
+          icon: startIcon, 
+          title: "출발지" 
+        }).addTo(map));
         if (endMarker) {
           map.removeLayer(endMarker);
           endMarker = null;
