@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, ScrollView, GestureResponderEvent, Image, PanGestureHandler, PanGestureHandlerGestureEvent } from "react-native";
+import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, ScrollView, GestureResponderEvent, Image, PanGestureHandler, PanGestureHandlerGestureEvent, Platform } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import axios from "axios";
 import Constants from "expo-constants";
@@ -469,23 +469,53 @@ const Explore: React.FC = () => {
     }
   };
 
-  const displayRoute = (routeData: any) => {
-    webViewRef.current?.postMessage(JSON.stringify({ 
-      type: "drawRoute", 
-      coordinates: routeData.coordinates, 
-      waytypes: routeData.waytypes 
-    }));
+  const displayRoute = async (routeData: any) => {
+    const { coordinates, waytypes, crossings } = routeData;
 
+    if (Platform.OS === "ios") {
+      const chunkSize = 100;
+      for (let i = 0; i < coordinates.length; i += chunkSize) {
+        const chunkCoords = coordinates.slice(i, i + chunkSize);
+        const chunkWaytypes = waytypes.slice(i, i + chunkSize);
+
+        await new Promise((res) => setTimeout(res, 30)); // 30~50ms 쉬면서 나눠 전송
+
+        webViewRef.current?.postMessage(
+          JSON.stringify({
+            type: "drawRouteChunk",
+            coordinates: chunkCoords,
+            waytypes: chunkWaytypes,
+          })
+        );
+      }
+
+      webViewRef.current?.postMessage(
+        JSON.stringify({
+          type: "drawRouteComplete",
+        })
+      );
+    } else {
+      webViewRef.current?.postMessage(
+        JSON.stringify({
+          type: "drawRoute",
+          coordinates,
+          waytypes,
+        })
+      );
+    }
+
+    // 공통적으로 신호등은 같이 전송
     webViewRef.current?.postMessage(
       JSON.stringify({
         type: "drawCrossings",
-        crossings: routeData.crossings,
+        crossings,
       })
     );
 
     setRouteInfo(routeData.info);
     setFareList(routeData.fareList);
   };
+
 
   const handlePreferenceChange = (newPreference: any) => {
     const newIndex = routeTypes.findIndex(route => route.key === newPreference);
