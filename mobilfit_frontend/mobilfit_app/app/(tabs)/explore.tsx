@@ -184,25 +184,50 @@ const Explore: React.FC = () => {
   const webViewRef = useRef<any>(null);
   const bottomSheetHeight = useRef(new Animated.Value(80)).current;
   const spinValue = useRef(new Animated.Value(0)).current;
+  const scaleValue = useRef(new Animated.Value(1)).current;
   const contentTranslateX = useRef(new Animated.Value(0)).current;
   const [touchStart, setTouchStart] = useState<{x: number, y: number} | null>(null);
 
-  // 스피너 애니메이션
+  // 안드로이드 호환 로딩 애니메이션
   React.useEffect(() => {
     if (isLoading) {
-      const spin = () => {
-        spinValue.setValue(0);
+      spinValue.setValue(0);
+      scaleValue.setValue(1);
+      
+      const spinAnimation = Animated.loop(
         Animated.timing(spinValue, {
           toValue: 1,
           duration: 1000,
           useNativeDriver: true,
-        }).start(() => {
-          if (isLoading) spin();
-        });
+        }),
+        { iterations: -1 }
+      );
+      
+      const scaleAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scaleValue, {
+            toValue: 1.2,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleValue, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ]),
+        { iterations: -1 }
+      );
+      
+      spinAnimation.start();
+      scaleAnimation.start();
+      
+      return () => {
+        spinAnimation.stop();
+        scaleAnimation.stop();
       };
-      spin();
     }
-  }, [isLoading, spinValue]);
+  }, [isLoading, spinValue, scaleValue]);
 
   const routeTypes = [
     { key: "recommended", label: "추천 경로" },
@@ -561,19 +586,24 @@ const Explore: React.FC = () => {
           {isLoading ? (
             <View style={styles.loadingState}>
               <View style={styles.loadingAnimation}>
-                <Animated.View 
-                  style={[
-                    styles.loadingSpinner,
-                    {
-                      transform: [{
-                        rotate: spinValue.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: ['0deg', '360deg']
-                        })
-                      }]
-                    }
-                  ]} 
-                />
+                <View style={styles.loadingSpinnerContainer}>
+                  <View style={styles.loadingSpinnerBase} />
+                  <Animated.View 
+                    style={[
+                      styles.loadingSpinnerActive,
+                      {
+                        transform: [{
+                          rotate: spinValue.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0deg', '360deg']
+                          })
+                        }]
+                      }
+                    ]} 
+                  >
+                    <View style={styles.loadingSpinnerSegment} />
+                  </Animated.View>
+                </View>
               </View>
               <Text style={styles.loadingText}>경로를 탐색중입니다...</Text>
               <Text style={styles.loadingSubText}>잠시만 기다려주세요</Text>
@@ -1186,13 +1216,33 @@ const styles = StyleSheet.create({
   loadingAnimation: {
     marginBottom: 16,
   },
-  loadingSpinner: {
+  loadingSpinnerContainer: {
+    width: 40,
+    height: 40,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingSpinnerBase: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    borderWidth: 3,
-    borderColor: '#f0f0f0',
-    borderTopColor: '#4CAF50',
+    backgroundColor: '#E8F5E8',
+    position: 'absolute',
+  },
+  loadingSpinnerActive: {
+    width: 40,
+    height: 40,
+    position: 'absolute',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+  },
+  loadingSpinnerSegment: {
+    width: 6,
+    height: 20,
+    backgroundColor: '#4CAF50',
+    borderRadius: 3,
+    marginTop: 2,
   },
   loadingText: {
     fontSize: 16,
