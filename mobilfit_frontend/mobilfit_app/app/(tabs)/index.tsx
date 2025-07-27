@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, Image, ActivityIndicator } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { Redirect, useRouter } from "expo-router";
 import { apiPost, apiGet } from "../../lib/api";
@@ -53,7 +53,12 @@ export default function HomeScreen() {
   if (isLoading || dataLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <Ionicons name="bicycle" size={60} color="#52C41A" />
+        <Image 
+          source={require('../../assets/images/mobilfit_logo.png')} 
+          style={styles.loadingLogo}
+          resizeMode="contain"
+        />
+        <ActivityIndicator size="large" color="#4CAF50" style={styles.spinner} />
         <Text style={styles.loadingText}>MobilFit 로딩 중...</Text>
       </View>
     );
@@ -305,13 +310,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 40,
+  },
+  loadingLogo: {
+    width: 160,
+    height: 100,
+    marginBottom: 30,
+  },
+  spinner: {
+    marginBottom: 16,
   },
   loadingText: {
-    marginTop: 16,
     fontSize: 16,
-    color: '#52C41A',
-    fontWeight: '600',
+    color: '#2C3E50',
+    fontWeight: '500',
   },
   welcomeHeader: {
     paddingTop: 20,
