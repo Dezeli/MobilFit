@@ -229,11 +229,8 @@ const Explore: React.FC = () => {
     }
   }, [isLoading, spinValue, scaleValue]);
 
-  const routeTypes = [
-    { key: "recommended", label: "추천 경로" },
-    { key: "fastest", label: "최단 시간" },
-    { key: "shortest", label: "최단 거리" }
-  ];
+  const [routeTypes, setRouteTypes] = useState<{ key: string; label: string }[]>([]);
+
 
   const handleTouchStart = (event: GestureResponderEvent) => {
     const { pageX, pageY } = event.nativeEvent;
@@ -402,20 +399,19 @@ const Explore: React.FC = () => {
   };
 
   const drawAllRoutes = async (start: any, end: any) => {
-    webViewRef.current?.postMessage(
-      JSON.stringify({ type: "setSearching", value: true })
-    );
+    webViewRef.current?.postMessage(JSON.stringify({ type: "setSearching", value: true }));
     setIsLoading(true);
-    
-    const routeTypes = ["recommended", "fastest", "shortest"];
-    const allData: {[key: string]: any} = {};
-    
+
+    const originalTypes = ["recommended", "fastest", "shortest"];
+    const allData: { [key: string]: any } = {};
+
     try {
-      for (const routeType of routeTypes) {
+      // 1. 모든 경로 받아오기
+      for (const routeType of originalTypes) {
         const routeResult = await fetchRoute(start, end, routeType);
         if (routeResult) {
           const { coordinates, waytypes, duration, distance } = routeResult;
-          
+
           const elevations = await getGoogleElevations(coordinates);
           const elevationWeight = calculateElevationWeight(elevations, coordinates);
           const avgSlope = calculateAvgSlopePercent(elevations, coordinates);
@@ -454,26 +450,59 @@ const Explore: React.FC = () => {
           };
         }
       }
-      
+
+      // 2. 각 기준에 따라 가장 좋은 경로 선택
+      const byAdjustedTime = Object.entries(allData).sort(([, a], [, b]) => a.info.adjustedTimeMin - b.info.adjustedTimeMin)[0][0];
+      const byBikeLane = Object.entries(allData)
+        .sort(([, a], [, b]) => {
+          // 1. 자전거도로 비율 높은 순
+          if (b.info.bikeLaneRatio !== a.info.bikeLaneRatio) {
+            return b.info.bikeLaneRatio - a.info.bikeLaneRatio;
+          }
+          // 2. 평균 경사도 낮은 순
+          if (a.info.avgSlope !== b.info.avgSlope) {
+            return a.info.avgSlope - b.info.avgSlope;
+          }
+          // 3. 신호등 개수 적은 순
+          return a.info.crossingCount - b.info.crossingCount;
+        })[0][0];
+      const byDistance = Object.entries(allData).sort(([, a], [, b]) => a.info.distance - b.info.distance)[0][0];
+
+      const finalOrder = [byAdjustedTime, byBikeLane, byDistance];
+      const uniqueOrder = [...new Set(finalOrder)];
+
+      // 3. 정렬된 순서대로 라벨도 설정
+      const newRouteTypes = uniqueOrder.map((key, index) => {
+        let label = "";
+        if (key === byAdjustedTime) label = "추천 경로";
+        else if (key === byBikeLane) label = "편한길 우선";
+        else if (key === byDistance) label = "최단 거리";
+        else label = key;
+        return { key, label };
+      });
+
+      // 4. 상태 반영
       setAllRouteData(allData);
       setCurrentRouteIndex(0);
-      
-      if (allData.recommended) {
-        displayRoute(allData.recommended);
-        setHasRoute(true);
-        setIsRouteFixed(true);
-        Animated.spring(bottomSheetHeight, {
-          toValue: 80,
-          useNativeDriver: false,
-        }).start();
-      }
+      setPreference(newRouteTypes[0].key);  // ← preference도 바뀐 순서로
+      displayRoute(allData[newRouteTypes[0].key]);
+
+      // 5. routeTypes도 교체 (전역이나 상단에서 선언되어 있으면 useState로 변경 필요)
+      // 예: const [routeTypes, setRouteTypes] = useState([...]);
+      setRouteTypes(newRouteTypes); // ⚠️ 이 줄이 작동하려면 routeTypes를 상태로 만들어야 함
+
+      setHasRoute(true);
+      setIsRouteFixed(true);
+      Animated.spring(bottomSheetHeight, {
+        toValue: 80,
+        useNativeDriver: false,
+      }).start();
     } finally {
-      webViewRef.current?.postMessage(
-        JSON.stringify({ type: "setSearching", value: false })
-      );
+      webViewRef.current?.postMessage(JSON.stringify({ type: "setSearching", value: false }));
       setIsLoading(false);
     }
   };
+
 
   const displayRoute = async (routeData: any) => {
     const { coordinates, waytypes, crossings } = routeData;
@@ -522,13 +551,6 @@ const Explore: React.FC = () => {
     setFareList(routeData.fareList);
   };
 
-
-  const handlePreferenceChange = (newPreference: any) => {
-    const newIndex = routeTypes.findIndex(route => route.key === newPreference);
-    if (newIndex !== -1) {
-      changeRoute(newIndex);
-    }
-  };
 
   const handleMessage = (event: WebViewMessageEvent) => {
     try {

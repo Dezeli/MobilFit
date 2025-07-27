@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, StatusBar, SafeAreaView } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,7 +8,14 @@ const { width, height } = Dimensions.get('window');
 
 export default function TermsPrivacyScreen() {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState('terms'); // 'terms' or 'privacy'
+
+  const handleTabPress = (tab: 'terms' | 'privacy') => {
+    setActiveTab(tab);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+  };
+
 
   const renderTermsContent = () => (
     <View style={styles.contentContainer}>
@@ -272,7 +279,7 @@ export default function TermsPrivacyScreen() {
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'terms' && styles.activeTab]}
-          onPress={() => setActiveTab('terms')}
+          onPress={() => handleTabPress('terms')}
           activeOpacity={0.8}
         >
           <LinearGradient
@@ -294,7 +301,7 @@ export default function TermsPrivacyScreen() {
 
         <TouchableOpacity
           style={[styles.tab, activeTab === 'privacy' && styles.activeTab]}
-          onPress={() => setActiveTab('privacy')}
+          onPress={() => handleTabPress('privacy')}
           activeOpacity={0.8}
         >
           <LinearGradient
@@ -317,6 +324,7 @@ export default function TermsPrivacyScreen() {
 
       {/* Content */}
       <ScrollView 
+        ref={scrollRef}
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
