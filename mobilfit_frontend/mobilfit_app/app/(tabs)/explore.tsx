@@ -258,7 +258,7 @@ const Explore: React.FC = () => {
   };
 
   const handleTouchEnd = (event: GestureResponderEvent) => {
-    if (!touchStart) return;
+    if (!touchStart || !hasRoute) return;
 
     const { pageX, pageY } = event.nativeEvent;
     const deltaX = pageX - touchStart.x;
@@ -402,6 +402,9 @@ const Explore: React.FC = () => {
   };
 
   const drawAllRoutes = async (start: any, end: any) => {
+    webViewRef.current?.postMessage(
+      JSON.stringify({ type: "setSearching", value: true })
+    );
     setIsLoading(true);
     
     const routeTypes = ["recommended", "fastest", "shortest"];
@@ -465,6 +468,9 @@ const Explore: React.FC = () => {
         }).start();
       }
     } finally {
+      webViewRef.current?.postMessage(
+        JSON.stringify({ type: "setSearching", value: false })
+      );
       setIsLoading(false);
     }
   };
