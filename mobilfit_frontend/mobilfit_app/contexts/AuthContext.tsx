@@ -1,0 +1,71 @@
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { getAccessToken, getMe, deleteTokens } from "../api/auth";
+
+export type User = {
+  id: number;
+  email: string;
+  nickname?: string;
+};
+
+type AuthContextType = {
+  user: User | null;
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  setUser: (user: User | null) => void;
+  logout: () => void;
+};
+
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isLoading: true,
+  isAuthenticated: false,
+  setUser: () => {},
+  logout: () => {},
+});
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // 앱 시작 시 자동 로그인 시도
+    const initAuth = async () => {
+      try {
+        const token = await getAccessToken();
+        if (token) {
+          const me = await getMe(token);
+          setUser(me);
+        }
+      } catch (error) {
+        console.log("자동 로그인 실패:", error);
+        await deleteTokens();
+        setUser(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  const logout = async () => {
+    await deleteTokens();
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        isAuthenticated: !!user,
+        setUser,
+        logout,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => useContext(AuthContext);
