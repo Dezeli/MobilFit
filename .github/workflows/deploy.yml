@@ -1,0 +1,27 @@
+name: 🚀 Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH + Deploy
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/mobilfit/
+
+            echo "${{ secrets.ENV_FILE }}" > .env
+
+            git pull origin main
+
+            docker compose down
+            docker compose up --build -d
