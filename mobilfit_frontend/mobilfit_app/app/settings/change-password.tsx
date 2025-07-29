@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   },
   pageTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontFamily: 'Cafe24',
     color: '#2C3E50',
     marginBottom: 8,
     textAlign: 'center',

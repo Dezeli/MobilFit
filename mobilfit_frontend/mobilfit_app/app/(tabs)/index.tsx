@@ -65,7 +65,7 @@ export default function HomeScreen() {
   }
 
   if (!isAuthenticated) {
-    return <Redirect href="/auth/login" />;
+    return <Redirect href="/landing" />;
   }
 
   const handleLogout = async () => {

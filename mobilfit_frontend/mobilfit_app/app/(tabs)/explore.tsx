@@ -451,19 +451,15 @@ const Explore: React.FC = () => {
         }
       }
 
-      // 2. 각 기준에 따라 가장 좋은 경로 선택
       const byAdjustedTime = Object.entries(allData).sort(([, a], [, b]) => a.info.adjustedTimeMin - b.info.adjustedTimeMin)[0][0];
       const byBikeLane = Object.entries(allData)
         .sort(([, a], [, b]) => {
-          // 1. 자전거도로 비율 높은 순
           if (b.info.bikeLaneRatio !== a.info.bikeLaneRatio) {
             return b.info.bikeLaneRatio - a.info.bikeLaneRatio;
           }
-          // 2. 평균 경사도 낮은 순
           if (a.info.avgSlope !== b.info.avgSlope) {
             return a.info.avgSlope - b.info.avgSlope;
           }
-          // 3. 신호등 개수 적은 순
           return a.info.crossingCount - b.info.crossingCount;
         })[0][0];
       const byDistance = Object.entries(allData).sort(([, a], [, b]) => a.info.distance - b.info.distance)[0][0];
@@ -471,7 +467,6 @@ const Explore: React.FC = () => {
       const finalOrder = [byAdjustedTime, byBikeLane, byDistance];
       const uniqueOrder = [...new Set(finalOrder)];
 
-      // 3. 정렬된 순서대로 라벨도 설정
       const newRouteTypes = uniqueOrder.map((key, index) => {
         let label = "";
         if (key === byAdjustedTime) label = "추천 경로";
@@ -481,15 +476,13 @@ const Explore: React.FC = () => {
         return { key, label };
       });
 
-      // 4. 상태 반영
+      
       setAllRouteData(allData);
       setCurrentRouteIndex(0);
-      setPreference(newRouteTypes[0].key);  // ← preference도 바뀐 순서로
+      setPreference(newRouteTypes[0].key);
       displayRoute(allData[newRouteTypes[0].key]);
 
-      // 5. routeTypes도 교체 (전역이나 상단에서 선언되어 있으면 useState로 변경 필요)
-      // 예: const [routeTypes, setRouteTypes] = useState([...]);
-      setRouteTypes(newRouteTypes); // ⚠️ 이 줄이 작동하려면 routeTypes를 상태로 만들어야 함
+      setRouteTypes(newRouteTypes);
 
       setHasRoute(true);
       setIsRouteFixed(true);
@@ -671,10 +664,10 @@ const Explore: React.FC = () => {
               <Text style={styles.instructionText}>
                 지도를 터치해서 출발지와 도착지를 설정하세요
               </Text>
-              <View style={styles.stepContainer}>
+              {/* <View style={styles.stepContainer}>
                 <Text style={styles.stepText}>첫 번째 터치: 출발지</Text>
                 <Text style={styles.stepText}>두 번째 터치: 도착지</Text>
-              </View>
+              </View> */}
             </View>
           ) : (
             <View style={styles.routeState}>
@@ -907,10 +900,10 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Cafe24',
     color: '#2c3e50',
     textAlign: 'center',
-    marginBottom: 12,
+    // marginBottom: 12,
   },
   stepContainer: {
     flexDirection: 'row',
@@ -945,8 +938,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   routeTypeLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: 'Cafe24',
     color: '#666',
     marginBottom: 4,
   },
@@ -983,12 +976,12 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   distanceText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#2c3e50',
   },
   timeText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#4CAF50',
   },
@@ -1028,10 +1021,10 @@ const styles = StyleSheet.create({
   },
   detailsTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Cafe24',
     color: '#2c3e50',
-    marginTop: 6,
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 10,
   },
   detailsRow: {
     flexDirection: 'row',
@@ -1043,6 +1036,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 9,
+    fontWeight: 'bold',
     color: '#666',
     marginBottom: 3,
     textAlign: 'center',
@@ -1063,10 +1057,10 @@ const styles = StyleSheet.create({
   },
   fareTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Cafe24',
     color: '#2c3e50',
     marginTop: 8,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   fareGrid: {
     gap: 8,
@@ -1143,7 +1137,7 @@ const styles = StyleSheet.create({
   },
   brandName: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Cafe24',
     color: '#333',
     textAlign: 'center',
     marginBottom: 2,
@@ -1188,7 +1182,7 @@ const styles = StyleSheet.create({
   },
   adSavingsAmount: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '900',
     color: '#FFD700',
   },
   adSubtext: {
@@ -1304,7 +1298,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Cafe24',
     color: '#2c3e50',
     marginBottom: 4,
   },

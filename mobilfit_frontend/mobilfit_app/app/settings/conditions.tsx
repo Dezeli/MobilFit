@@ -447,10 +447,10 @@ const styles = StyleSheet.create({
   },
   documentTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: 'Cafe24',
     color: '#2C3E50',
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
   },
   documentDate: {

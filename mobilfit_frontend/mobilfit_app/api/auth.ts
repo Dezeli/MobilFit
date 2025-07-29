@@ -1,6 +1,7 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
-import { API_BASE_URL } from "../constants/urls";
+
+export const API_BASE_URL = "https://mobilfit.kr";
 
 const instance = axios.create({
   baseURL: API_BASE_URL,

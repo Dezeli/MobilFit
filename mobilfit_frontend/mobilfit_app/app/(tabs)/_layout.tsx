@@ -55,7 +55,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#8E9AAF',
         tabBarLabelStyle: {
           fontSize: 12,
-          fontWeight: '600',
+          fontFamily: 'Cafe24',
           marginTop: 4,
         },
         tabBarIconStyle: {
@@ -81,7 +81,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: "탐색",
+          title: "경로 탐색",
           tabBarIcon: ({ color, size, focused }) => (
             <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
               <Ionicons 

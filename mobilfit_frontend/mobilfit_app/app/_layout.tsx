@@ -12,8 +12,12 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   const [fontsLoaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    'Pretendard-Regular': require('../assets/fonts/Pretendard-Regular.ttf'),
+    'Pretendard-Bold': require('../assets/fonts/Pretendard-Bold.ttf'),
+    'Cafe24': require('../assets/fonts/Cafe24Ssurround.ttf'),
+    'Agbalumo-Regular': require('../assets/fonts/Agbalumo-Regular.ttf'),
   });
+
 
   const isAppReady = fontsLoaded; //
 

@@ -1,4 +1,4 @@
-export const API_BASE_URL = "http://192.168.0.5";
+export const API_BASE_URL = "https://mobilfit.kr";
 
 export async function apiPost(endpoint: string, data: any, accessToken?: string) {
   console.log("🌟 API 요청 데이터:", JSON.stringify(data));
