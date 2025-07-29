@@ -17,11 +17,11 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd /home/ubuntu/MobilFit/
+            cd /home/ubuntu/Mobilfit/
 
             echo "${{ secrets.ENV_FILE }}" > .env
 
-            git pull origin main
+            git pull origin master
 
-            docker compose -f docker-compose.prod.yml down
-            docker compose -f docker-compose.prod.yml up --build -d
+            docker compose down
+            docker compose up --build -d
