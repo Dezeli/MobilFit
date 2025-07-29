@@ -1,0 +1,19 @@
+site_name: Mobilfit API 문서
+theme:
+  name: material
+
+nav:
+  - 🛂 Mobilfit API 문서: index.md
+  - auth API:
+      - 소개: auth/index.md
+      - 회원가입: auth/signup.md
+      - 로그인: auth/login.md
+      - 로그아웃: auth/logout.md
+      - 토큰 갱신: auth/token_refresh.md
+      - 이메일 인증 전송: auth/email_send.md
+      - 이메일 인증 확인: auth/email_confirm.md
+      - 아이디 찾기: auth/find_id.md
+      - 임시 비밀번호 전송: auth/reset_password.md
+      - 비밀번호 변경: auth/change_password.md
+      - 토큰 검증: auth/me.md
+      - 마이페이지 정보: auth/user_mypage.md
