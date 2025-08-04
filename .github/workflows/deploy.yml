@@ -26,3 +26,4 @@ jobs:
             docker compose -f docker-compose.prod.yml down
             docker compose -f docker-compose.prod.yml up --build -d
 
+            docker compose -f docker-compose.prod.yml exec -T web python manage.py migrate --settings=mobilfit_backend.settings.prod
