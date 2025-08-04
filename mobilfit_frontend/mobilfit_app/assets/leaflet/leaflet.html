@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -42,7 +41,6 @@
     let endMarker = null;
     let polylineGroup = L.layerGroup().addTo(map);
     let crossingGroup = L.layerGroup().addTo(map);
-    let clickCount = 0;
     let isSearchingRoute = false;
     let isRouteFixed = false;
     let chunkedCoords = [];
@@ -63,7 +61,45 @@
         let data = event.data;
         if (typeof data === "string") data = JSON.parse(data);
 
-        if (data.type === "drawRoute") {
+        if (data.type === "setStartMarker") {
+          // 출발지 마커 설정
+          if (startMarker) {
+            map.removeLayer(startMarker);
+          }
+          startMarker = L.marker([data.lat, data.lng], { icon: startIcon }).addTo(map);
+          if (data.name) {
+            startMarker.bindPopup(data.name);
+          }
+        } else if (data.type === "setEndMarker") {
+          // 도착지 마커 설정
+          if (endMarker) {
+            map.removeLayer(endMarker);
+          }
+          endMarker = L.marker([data.lat, data.lng], { icon: endIcon }).addTo(map);
+          if (data.name) {
+            endMarker.bindPopup(data.name);
+          }
+        } else if (data.type === "removeStartMarker") {
+          // 출발지 마커 제거
+          if (startMarker) {
+            map.removeLayer(startMarker);
+            startMarker = null;
+          }
+        } else if (data.type === "removeEndMarker") {
+          // 도착지 마커 제거
+          if (endMarker) {
+            map.removeLayer(endMarker);
+            endMarker = null;
+          }
+        } else if (data.type === "getMapCenter") {
+          // 지도 중심점 좌표 반환
+          const center = map.getCenter();
+          window.ReactNativeWebView.postMessage(JSON.stringify({ 
+            type: "mapCenter", 
+            lat: center.lat, 
+            lng: center.lng 
+          }));
+        } else if (data.type === "drawRoute") {
           chunkedCoords = [];
           chunkedWaytypes = [];
           polylineGroup.clearLayers();
@@ -106,17 +142,15 @@
           crossingGroup.clearLayers();
           if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
           if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
-          clickCount = 0;
           isRouteFixed = false;
           isSearchingRoute = false;
           chunkedCoords = [];
           chunkedWaytypes = [];
         } else if (data.type === "setSearching") {
           isSearchingRoute = data.value;
-          console.log("[DEBUG] setSearching 수신됨:", isSearchingRoute);
         }
       } catch (e) {
-        console.error("메시지 처리 오류:", e);
+        // 메시지 처리 오류 무시
       }
     }
 
@@ -125,25 +159,24 @@
     // iOS용 메시지 수신
     window.addEventListener("message", handleMessage);
 
+    // 지도 클릭 시 좌표만 전달 (마커 표시는 하지 않음)
     map.on("click", function(e) {
-      if (isRouteFixed || isSearchingRoute) {
-        console.log("❌ 클릭 차단됨");
-        return;
-      }
       const lat = e.latlng.lat, lng = e.latlng.lng;
-      clickCount++;
-      if (clickCount === 1) {
-        startMarker?.setLatLng(e.latlng) || (startMarker = L.marker(e.latlng, { icon: startIcon }).addTo(map));
-      } else if (clickCount === 2) {
-        endMarker?.setLatLng(e.latlng) || (endMarker = L.marker(e.latlng, { icon: endIcon }).addTo(map));
-      } else {
-        startMarker?.setLatLng(e.latlng) || (startMarker = L.marker(e.latlng, { icon: startIcon }).addTo(map));
-        if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
-        polylineGroup.clearLayers();
-        crossingGroup.clearLayers();
-        clickCount = 1;
-      }
-      window.ReactNativeWebView.postMessage(JSON.stringify({ type: "mapClick", lat, lng, clickCount }));
+      window.ReactNativeWebView.postMessage(JSON.stringify({ 
+        type: "mapClick", 
+        lat, 
+        lng 
+      }));
+    });
+
+    // 지도 이동 시 중심점 좌표 업데이트
+    map.on("moveend", function() {
+      const center = map.getCenter();
+      window.ReactNativeWebView.postMessage(JSON.stringify({ 
+        type: "mapCenter", 
+        lat: center.lat, 
+        lng: center.lng 
+      }));
     });
   </script>
 </body>

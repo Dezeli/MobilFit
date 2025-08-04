@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, Image, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Dimensions, Alert, Image, ActivityIndicator, RefreshControl } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
-import { Redirect, useRouter } from "expo-router";
-import { apiPost, apiGet } from "../../lib/api";
+import { Redirect } from "expo-router";
+import { apiGet, API_BASE_URL } from "../../lib/api";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from "expo-secure-store";
@@ -10,45 +10,107 @@ import * as SecureStore from "expo-secure-store";
 const { width, height } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  const { isAuthenticated, isLoading, user, logout: clearAuth } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [userData, setUserData] = useState<any>(null);
+  const { isAuthenticated, isLoading } = useAuth();
+  const [notices, setNotices] = useState<any[]>([]);
+  const [userInfo, setUserInfo] = useState<any>(null);
+  const [userGrade, setUserGrade] = useState<any>(null);
+  const [myPageData, setMyPageData] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(true);
-  const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      if (!isAuthenticated) {
+  const fetchAllData = async () => {
+    if (!isAuthenticated) {
+      setDataLoading(false);
+      return;
+    }
+
+    try {
+      const accessToken = await SecureStore.getItemAsync("accessToken");
+      if (!accessToken) {
         setDataLoading(false);
         return;
       }
 
+      // 공지사항 가져오기 (인증 불필요)
       try {
-        const accessToken = await SecureStore.getItemAsync("accessToken");
-        if (!accessToken) {
-          console.log("액세스 토큰이 없습니다");
-          setDataLoading(false);
-          return;
-        }
-
-        console.log("API 호출 시작");
-        const res = await apiGet("/api/v1/auth/user/mypage/", accessToken);
-        console.log("API 응답:", res);
-        
-        if (res && res.data && res.data.result) {
-          setUserData(res.data.result);
-          console.log("사용자 데이터 설정 완료:", res.data.result);
-        }
-      } catch (error: any) {
-        console.log("사용자 데이터 가져오기 실패:", error);
-        console.log("에러 상세:", error.message);
-      } finally {
-        setDataLoading(false);
+        const noticeRes = await fetch(`${API_BASE_URL}/api/v1/auth/notices/`);
+        const noticeData = await noticeRes.json();
+        console.log("🌟 공지사항 응답:", noticeData);
+        setNotices(noticeData?.data?.result || noticeData?.data || []);
+      } catch (error) {
+        console.log("공지사항 로드 실패:", error);
+        setNotices([]);
       }
-    };
 
-    fetchUserData();
+      // 사용자 기본 정보 (닉네임)
+      try {
+        const meRes = await apiGet("/api/v1/auth/me/", accessToken);
+        console.log("🌟 /me/ 응답:", meRes);
+        setUserInfo(meRes?.data?.result || meRes?.data || {});
+      } catch (error) {
+        console.log("사용자 정보 로드 실패:", error);
+        setUserInfo({});
+      }
+
+      // 사용자 등급 정보 (플래티넘/골드/실버/브론즈)
+      try {
+        const gradeRes = await apiGet("/api/v1/auth/me/grade/", accessToken);
+        console.log("🌟 /grade/ 응답:", gradeRes);
+        setUserGrade(gradeRes?.data?.result || gradeRes?.data || {});
+      } catch (error) {
+        console.log("등급 정보 로드 실패:", error);
+        setUserGrade({});
+      }
+
+      // 마이페이지 데이터 (주행 점수, 절약 금액, 주행 거리, 앱 사용 횟수)
+      try {
+        const myPageRes = await apiGet("/api/v1/auth/user/mypage/", accessToken);
+        console.log("🌟 /mypage/ 응답:", myPageRes);
+        setMyPageData(myPageRes?.data?.result || myPageRes?.data || {});
+      } catch (error) {
+        console.log("마이페이지 데이터 로드 실패:", error);
+        setMyPageData({});
+      }
+
+    } catch (error) {
+      console.log("데이터 로드 실패:", error);
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllData();
   }, [isAuthenticated]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchAllData();
+    setRefreshing(false);
+  };
+
+  // 날짜 포맷 변환 함수
+  const formatNoticeDate = (dateString: string) => {
+    if (!dateString) return '';
+    
+    try {
+      // 2025-08-03 05:58 형태를 25년 08월 03일 05시 58분으로 변환
+      const parts = dateString.split(' ');
+      if (parts.length !== 2) return dateString; // 원본 반환
+      
+      const datePart = parts[0]; // 2025-08-03
+      const timePart = parts[1]; // 05:58
+      
+      const [year, month, day] = datePart.split('-');
+      const [hour, minute] = timePart.split(':');
+      
+      const shortYear = year; // 뒤의 2자리만
+      
+      return `${shortYear}-${month}-${day}  ${hour}:${minute}`;
+    } catch (error) {
+      return dateString; // 오류 시 원본 반환
+    }
+  };
 
   if (isLoading || dataLoading) {
     return (
@@ -65,47 +127,96 @@ export default function HomeScreen() {
   }
 
   if (!isAuthenticated) {
-    return <Redirect href="/landing" />;
+    return <Redirect href="/auth/login" />;
   }
 
-  const handleLogout = async () => {
-    Alert.alert(
-      "로그아웃",
-      "정말 로그아웃하시겠습니까?",
-      [
-        { text: "취소", style: "cancel" },
-        {
-          text: "로그아웃",
-          style: "destructive",
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const refreshToken = await SecureStore.getItemAsync("refreshToken");
+  // 환경 기여도 / 경제적 시각화 계산
+  const getEnvironmentData = () => {
+    if (!myPageData) return { co2Saved: 0, treeEquivalent: 0, coffeeCount: 0 };
+    
+    const totalDistance = myPageData.total_distance_km || 0;
+    const totalSaving = myPageData.total_saved_money || 0;
+    
+    // 환경 지표 계산
+    const co2Saved = Math.round(totalDistance * 0.21); // 1km당 0.21kg CO2 절감
+    const treeEquivalent = Math.floor(co2Saved / 22); // 나무 1그루당 22kg CO2 흡수
+    const coffeeCount = Math.floor(totalSaving / 5000); // 커피 1잔 5000원
+    
+    return { co2Saved, treeEquivalent, coffeeCount };
+  };
 
-              if (refreshToken) {
-                await apiPost("/api/v1/auth/logout/", { refresh: refreshToken });
-              }
+  const environmentData = getEnvironmentData();
 
-              await SecureStore.deleteItemAsync("accessToken");
-              await SecureStore.deleteItemAsync("refreshToken");
-
-              clearAuth();
-            } catch (error: any) {
-              Alert.alert("에러", error.message || "로그아웃 실패");
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
+  // 5개 아이콘 가로 정렬 함수
+  const renderFiveIconProgress = (current: number, max: number, iconName: string, color: string) => {
+    const progress = Math.min(current / max, 1);
+    const totalIcons = 5;
+    const filledAmount = progress * totalIcons;
+    
+    return (
+      <View style={styles.iconRowContainer}>
+        <Ionicons 
+          name={iconName} 
+          size={24} 
+          color={filledAmount >= 1 ? color : '#E0E0E0'} 
+        />
+        <Ionicons 
+          name={iconName} 
+          size={24} 
+          color={filledAmount >= 2 ? color : '#E0E0E0'} 
+        />
+        <Ionicons 
+          name={iconName} 
+          size={24} 
+          color={filledAmount >= 3 ? color : '#E0E0E0'} 
+        />
+        <Ionicons 
+          name={iconName} 
+          size={24} 
+          color={filledAmount >= 4 ? color : '#E0E0E0'} 
+        />
+        <Ionicons 
+          name={iconName} 
+          size={24} 
+          color={filledAmount >= 5 ? color : '#E0E0E0'} 
+        />
+      </View>
     );
   };
 
+  // 등급별 이모티콘 함수
+  const getGradeEmoji = (grade: string) => {
+    switch(grade?.toLowerCase()) {
+      case '플래티넘': return '💎';
+      case '골드': return '🥇';
+      case '실버': return '🥈';
+      case '브론즈': return '🥉';
+      default: return '🥉';
+    }
+  };
+  // 한국어 금액 변환 함수 (가장 큰 단위만)
+  const formatKoreanAmount = (amount: number) => {
+    if (amount >= 10000) {
+      const man = Math.floor(amount / 10000);
+      return `약 ${man}만원`;
+    } else if (amount >= 1000) {
+      const cheon = Math.floor(amount / 1000);
+      return `약 ${cheon}천원`;
+    }
+    return `약 ${amount}원`;
+  };
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Welcome Header */}
+    <ScrollView 
+      style={styles.container} 
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      {/* Welcome Header with 닉네임 and 내 등급 */}
       <LinearGradient
-        colors={['#52C41A', '#73D13D']}
+        colors={['#4CAF50', '#66BB6A']}
         style={styles.welcomeHeader}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -113,190 +224,109 @@ export default function HomeScreen() {
         <View style={styles.welcomeContent}>
           <View style={styles.greetingSection}>
             <Text style={styles.greetingText}>안녕하세요!</Text>
-            <Text style={styles.userName}>{userData?.nickname || user?.nickname || '라이더'}님</Text>
+            <Text style={styles.userName}>{userInfo?.nickname || "라이더"}님 🚴‍♂️</Text>
             <Text style={styles.welcomeSubtext}>오늘도 친환경 라이딩 준비되셨나요?</Text>
           </View>
-          <View style={styles.weatherCard}>
-            <Ionicons name="sunny" size={24} color="#FFA940" />
-            <Text style={styles.weatherText}>22°C</Text>
-            <Text style={styles.weatherDesc}>라이딩 좋음</Text>
+          <View style={styles.gradeCard}>
+            <Text style={styles.gradeEmoji}>{getGradeEmoji(userGrade?.grade)}</Text>
+            <Text style={styles.gradeText}>{userGrade?.grade || "브론즈"}</Text>
           </View>
         </View>
       </LinearGradient>
 
-      {/* Quick Stats */}
-      <View style={styles.quickStatsContainer}>
-        <Text style={styles.sectionTitle}>오늘의 현황</Text>
-        <View style={styles.statsRow}>
+      {/* 공지사항 */}
+      {notices.length > 0 && (
+        <View style={styles.noticeContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.noticeScrollContainer}>
+            {notices.slice(0, 3).map((notice, index) => (
+              <View key={`notice-${index}`} style={[styles.noticeCard, index === notices.slice(0, 3).length - 1 && styles.lastNoticeCard]}>
+                <LinearGradient
+                  colors={['rgba(255, 152, 0, 0.1)', 'rgba(255, 224, 178, 0.05)']}
+                  style={styles.noticeGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                />
+                <Text style={styles.noticeCardTitle} numberOfLines={1}>
+                  {notice.title}
+                </Text>
+                <Text style={styles.noticeContent} numberOfLines={2}>
+                  {notice.content}
+                </Text>
+                <Text style={styles.noticeDate}>
+                  {formatNoticeDate(notice.created_at)}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* 핵심 지표 4개: 주행 점수, 누적 절약 금액, 누적 주행 거리, 앱 사용 횟수 */}
+      <View style={styles.statsContainer}>
+        <Text style={styles.sectionTitle}>나의 라이딩 현황</Text>
+        <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <LinearGradient
-              colors={['#52C41A', '#73D13D']}
+              colors={['#4CAF50', '#66BB6A']}
               style={styles.statIcon}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
             >
-              <Ionicons name="bicycle" size={20} color="#FFFFFF" />
+              <Ionicons name="speedometer" size={20} color="#FFFFFF" />
             </LinearGradient>
-            <Text style={styles.statValue}>{userData?.ride_score || 0} 점</Text>
+            <Text style={styles.statValue}>{myPageData?.ride_score || 80}점</Text>
             <Text style={styles.statLabel}>주행 점수</Text>
           </View>
           
           <View style={styles.statCard}>
             <LinearGradient
-              colors={['#FA8C16', '#FF7875']}
+              colors={['#FF9800', '#FFB74D']}
               style={styles.statIcon}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Ionicons name="leaf" size={20} color="#FFFFFF" />
-            </LinearGradient>
-            <Text style={styles.statValue}>
-              {userData ? Math.round((userData.total_saved_money / 1500) * 2.3) : 2.3}kg
-            </Text>
-            <Text style={styles.statLabel}>CO₂ 절약</Text>
-          </View>
-          
-          <View style={styles.statCard}>
-            <LinearGradient
-              colors={['#1890FF', '#40A9FF']}
-              style={styles.statIcon}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
             >
               <Ionicons name="wallet" size={20} color="#FFFFFF" />
             </LinearGradient>
-            <Text style={styles.statValue}>
-              {userData?.total_saved_money ? userData.total_saved_money.toLocaleString() : '12,500'}원
-            </Text>
+            <Text style={styles.statValue}>{formatKoreanAmount(myPageData?.total_saved_money || 0)}</Text>
             <Text style={styles.statLabel}>절약 금액</Text>
           </View>
-        </View>
-      </View>
 
-      {/* Quick Actions */}
-      <View style={styles.quickActionsContainer}>
-        <Text style={styles.sectionTitle}>빠른 메뉴</Text>
-        <View style={styles.actionsGrid}>
-          <TouchableOpacity style={styles.actionCard}>
+          <View style={styles.statCard}>
             <LinearGradient
-              colors={['#52C41A', '#73D13D']}
-              style={styles.actionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              colors={['#80a0c7ff', '#9fb8d1']}
+              style={styles.statIcon}
             >
-              <Ionicons name="navigate" size={32} color="#FFFFFF" />
-              <Text style={styles.actionTitle}>경로 찾기</Text>
-              <Text style={styles.actionDesc}>자전거 도로 안내</Text>
+              <Ionicons name="bicycle" size={20} color="#FFFFFF" />
             </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard}>
-            <LinearGradient
-              colors={['#FA8C16', '#FF7875']}
-              style={styles.actionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Ionicons name="location" size={32} color="#FFFFFF" />
-              <Text style={styles.actionTitle}>근처 정거장</Text>
-              <Text style={styles.actionDesc}>대여소 찾기</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard}>
-            <LinearGradient
-              colors={['#1890FF', '#40A9FF']}
-              style={styles.actionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Ionicons name="analytics" size={32} color="#FFFFFF" />
-              <Text style={styles.actionTitle}>라이딩 기록</Text>
-              <Text style={styles.actionDesc}>통계 보기</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.actionCard}>
-            <LinearGradient
-              colors={['#722ED1', '#B37FEB']}
-              style={styles.actionGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Ionicons name="people" size={32} color="#FFFFFF" />
-              <Text style={styles.actionTitle}>커뮤니티</Text>
-              <Text style={styles.actionDesc}>라이더 모임</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Recent Activity */}
-      <View style={styles.recentActivityContainer}>
-        <Text style={styles.sectionTitle}>최근 활동</Text>
-        <View style={styles.activityCard}>
-          <View style={styles.activityHeader}>
-            <Ionicons name="time-outline" size={20} color="#52C41A" />
-            <Text style={styles.activityTitle}>
-              {userData?.app_usage_count > 0 ? `${userData.app_usage_count}회 앱 사용` : '아직 기록이 없습니다'}
-            </Text>
+            <Text style={styles.statValue}>{(myPageData?.total_distance_km || 0).toFixed(1)}km</Text>
+            <Text style={styles.statLabel}>주행 거리</Text>
           </View>
-          <Text style={styles.activityDesc}>
-            {userData?.app_usage_count > 0 ? '꾸준한 라이딩으로 환경을 지켜주셔서 감사합니다!' : '첫 라이딩을 시작해보세요!'}
-          </Text>
-          <TouchableOpacity style={styles.startRidingButton}>
-            <Text style={styles.startRidingText}>라이딩 시작하기</Text>
-            <Ionicons name="arrow-forward" size={16} color="#52C41A" />
-          </TouchableOpacity>
+
+          <View style={styles.statCard}>
+            <LinearGradient
+              colors={['#666', '#888']}
+              style={styles.statIcon}
+            >
+              <Ionicons name="rocket" size={20} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={styles.statValue}>{myPageData?.app_usage_count || 0}회</Text>
+            <Text style={styles.statLabel}>앱 사용</Text>
+          </View>
         </View>
       </View>
 
-      {/* Environmental Impact */}
+      {/* 나의 친환경 기록 */}
       <View style={styles.environmentContainer}>
-        <Text style={styles.sectionTitle}>환경 기여도</Text>
-        <View style={styles.environmentCard}>
-          <View style={styles.environmentHeader}>
-            <Ionicons name="earth" size={32} color="#52C41A" />
-            <View style={styles.environmentContent}>
-              <Text style={styles.environmentTitle}>이번 주 환경 보호 효과</Text>
-              <Text style={styles.environmentDesc}>자전거로 지구를 지켜주셔서 감사합니다!</Text>
-            </View>
+        <Text style={styles.sectionTitle}>나의 친환경 기록</Text>
+        <View style={styles.environmentGrid}>
+          <View style={styles.envCard}>
+            {renderFiveIconProgress(environmentData.treeEquivalent, 50, 'leaf', '#4CAF50')}
+            <Text style={styles.envInfoLine}>{environmentData.treeEquivalent}그루 / {environmentData.co2Saved}kg CO₂ 절감</Text>
           </View>
-          <View style={styles.environmentStats}>
-            <View style={styles.envStat}>
-              <Text style={styles.envStatValue}>
-                {userData ? Math.round((userData.total_saved_money / 1500) * 2.3 * 7) : 15.2}kg
-              </Text>
-              <Text style={styles.envStatLabel}>CO₂ 절약</Text>
-            </View>
-            <View style={styles.envStat}>
-              <Text style={styles.envStatValue}>
-                {userData ? Math.round(userData.app_usage_count * 0.8) : 3.8}L
-              </Text>
-              <Text style={styles.envStatLabel}>연료 절약</Text>
-            </View>
-            <View style={styles.envStat}>
-              <Text style={styles.envStatValue}>
-                {userData ? Math.round(userData.app_usage_count * 3.2) : 25}km
-              </Text>
-              <Text style={styles.envStatLabel}>친환경 이동</Text>
-            </View>
+
+          <View style={styles.envCard}>
+            {renderFiveIconProgress(environmentData.coffeeCount, 50, 'cafe', '#FF9800')}
+            <Text style={styles.envInfoLine}>{environmentData.coffeeCount}잔 / {(myPageData?.total_saved_money || 0).toLocaleString()}원 절약</Text>
           </View>
         </View>
       </View>
 
-      {/* Emergency Logout (Hidden) */}
-      <View style={styles.hiddenSection}>
-        <TouchableOpacity
-          onPress={handleLogout}
-          disabled={loading}
-          style={styles.hiddenLogoutButton}
-        >
-          <Text style={styles.hiddenLogoutText}>
-            {loading ? "로그아웃 중..." : "로그아웃"}
-          </Text>
-        </TouchableOpacity>
-      </View>
     </ScrollView>
   );
 }
@@ -304,13 +334,13 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#ffffff',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 40,
   },
   loadingLogo: {
@@ -323,89 +353,150 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#2C3E50',
-    fontWeight: '500',
+    fontFamily: 'Cafe24',
+    color: '#2c3e50',
+    fontWeight: '600',
   },
   welcomeHeader: {
-    paddingTop: 20,
-    paddingBottom: 30,
-    paddingHorizontal: 24,
-    marginBottom: 30,
+    paddingTop: 15,
+    paddingBottom: 20,
+    paddingHorizontal: 10,
+    marginBottom: 12,
   },
   welcomeContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    paddingTop: 5,
+    paddingHorizontal: 15,
   },
   greetingSection: {
     flex: 1,
   },
   greetingText: {
-    fontSize: 16,
+    fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500',
-    marginBottom: 4,
   },
   userName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 8,
+    fontSize: 20,
+    fontFamily: 'Cafe24',
+    color: '#ffffff',
+    marginVertical: 6,
   },
   welcomeSubtext: {
-    fontSize: 14,
+    fontSize: 12,
     color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '500',
   },
-  weatherCard: {
+  gradeCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 12,
     alignItems: 'center',
-    minWidth: 80,
+    minWidth: 90,
   },
-  weatherText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 4,
+  gradeEmoji: {
+    fontSize: 24,
+    marginBottom: 4,
   },
-  weatherDesc: {
+  gradeText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
-    marginTop: 2,
+    fontFamily: 'Cafe24',
+    fontWeight: 'bold',
+    color: '#ffffff',
   },
-  quickStatsContainer: {
-    paddingHorizontal: 24,
-    marginTop: -10,
-    marginBottom: 24,
+  noticeContainer: {
+    paddingHorizontal: 16,
+    marginBottom: 14,
+  },
+  noticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  noticeTitle: {
+    fontSize: 16,
+    fontFamily: 'Cafe24',
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginLeft: 8,
+  },
+  noticeCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    width: width - 40,
+    borderWidth: 2,
+    borderColor: '#FFE0B2',
+    position: 'relative',
+    overflow: 'hidden',
+    marginBottom: 6,
+  },
+  lastNoticeCard: {
+    marginRight: 0,
+  },
+  noticeGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 12,
+  },
+  noticeCardTitle: {
+    fontSize: 14,
+    fontFamily: 'Cafe24',
+    fontWeight: '600',
+    color: '#E65100',
+    marginBottom: 4,
+    position: 'relative',
+    zIndex: 1,
+  },
+  noticeContent: {
+    fontSize: 13,
+    color: '#F57C00',
+    fontWeight: '500',
+    marginBottom: 8,
+    lineHeight: 18,
+    position: 'relative',
+    zIndex: 1,
+  },
+  noticeDate: {
+    fontSize: 11,
+    color: '#FF9800',
+    fontWeight: '500',
+    position: 'relative',
+    zIndex: 1,
+  },
+  statsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2C3E50',
+    fontFamily: 'Cafe24',
+    color: '#2c3e50',
     marginBottom: 16,
   },
-  statsRow: {
+  statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    gap: 6,
   },
   statCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 16,
+    padding: 10,
     alignItems: 'center',
     flex: 1,
-    marginHorizontal: 4,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
   },
   statIcon: {
     width: 36,
@@ -413,184 +504,111 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: 'bold',
-    color: '#2C3E50',
-    marginBottom: 4,
+    color: '#2c3e50',
+    marginBottom: 2,
+    textAlign: 'center',
   },
   statLabel: {
-    fontSize: 12,
-    color: '#6C757D',
+    fontSize: 9,
+    color: '#666',
     fontWeight: '500',
     textAlign: 'center',
-  },
-  quickActionsContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  actionCard: {
-    width: (width - 72) / 2,
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  actionGradient: {
-    padding: 20,
-    alignItems: 'center',
-    minHeight: 120,
-    justifyContent: 'center',
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 8,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  actionDesc: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  recentActivityContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  activityCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  activityHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  activityTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2C3E50',
-    marginLeft: 8,
-  },
-  activityDesc: {
-    fontSize: 14,
-    color: '#6C757D',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  startRidingButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F6FFED',
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#D9F7BE',
-  },
-  startRidingText: {
-    color: '#52C41A',
-    fontSize: 14,
-    fontWeight: '600',
-    marginRight: 8,
+    lineHeight: 12,
   },
   environmentContainer: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    marginBottom: 25,
   },
-  environmentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
+  environmentGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  envCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 25,
+    alignItems: 'center',
+    flex: 1,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
   },
-  environmentHeader: {
+  envHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
-  environmentContent: {
-    marginLeft: 12,
-    flex: 1,
+  envTitle: {
+    fontSize: 12,
+    fontFamily: 'Cafe24',
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginTop: 8,
+    marginBottom: 8,
+    textAlign: 'center',
   },
-  environmentTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2C3E50',
-    marginBottom: 4,
-  },
-  environmentDesc: {
-    fontSize: 13,
-    color: '#6C757D',
+  envValue: {
+    fontSize: 11,
+    color: '#666',
     fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 4,
   },
-  environmentStats: {
+  visualSection: {
+    marginBottom: 16,
+  },
+  visualLabel: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  visualContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  envStat: {
+    flexWrap: 'wrap',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    marginVertical: 6,
   },
-  envStatValue: {
+  visualIcon: {
+    fontSize: 16,
+  },
+  moreText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  savingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savingAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#52C41A',
-    marginBottom: 4,
+    color: '#2c3e50',
+    marginRight: 6,
   },
-  envStatLabel: {
-    fontSize: 12,
-    color: '#6C757D',
+  iconRowContainer: {
+    flexDirection: 'row',
+  },
+  envInfoLine: {
+    fontSize: 11,
+    color: '#666',
     fontWeight: '500',
-  },
-  hiddenSection: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    alignItems: 'center',
-  },
-  hiddenLogoutButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  hiddenLogoutText: {
-    fontSize: 12,
-    color: '#ADB5BD',
-    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 12,
   },
 });

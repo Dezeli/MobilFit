@@ -13,4 +13,13 @@ urlpatterns = [
     path("change-password/", PasswordChangeView.as_view(), name="change-password"),
     path("me/", MeView.as_view(), name="me"),
     path('user/mypage/', MyPageView.as_view(), name='user-mypage'),
+    path('me/delete/', DeleteAccountView.as_view(), name='delete-account'),
+    path('me/update-data/', UpdateUserDataView.as_view(), name='update-user-data'),
+    path('rides/', RideLogCreateView.as_view(), name='ride-log-create'),
+    path('me/rank/', MyRankView.as_view(), name='my-rank'),
+    path('rankings/', RankingView.as_view(), name='rankings'),
+    path('me/grade/', GradeView.as_view(), name='my-grade'),
+    path('feedback/', FeedbackView.as_view(), name='feedback'),
+    path('notices/', NoticeListView.as_view(), name='notice-list'),
+    path('rides/list/', RideLogListView.as_view(), name='ride-log-list'),
 ]
