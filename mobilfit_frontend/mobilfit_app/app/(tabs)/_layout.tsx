@@ -94,9 +94,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="mypage"
+        name="ranking"
         options={{
-          title: "마이페이지",
+          title: "랭킹",
           tabBarIcon: ({ color, size, focused }) => (
             <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
               <Ionicons 
@@ -109,9 +109,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="mypage"
         options={{
-          title: "설정",
+          title: "마이페이지",
           tabBarIcon: ({ color, size, focused }) => (
             <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
               <Ionicons 

@@ -6,11 +6,19 @@ from users.serializers import *
 from utils.response import success_response, error_response
 from utils.masking import mask_username
 from utils.password import generate_temp_password
+from utils.time import get_month_range
 from rest_framework_simplejwt.views import TokenRefreshView as SimpleJWTRefreshView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from decouple import config
+from django.utils.timezone import now, make_aware
+from datetime import timedelta, datetime
+from django.utils.dateparse import parse_datetime
+from django.db.models import Sum, Max, Count, F, Window
+from django.db.models.functions import Rank
+from .models import RideLog, Feedback
+
 
 User = get_user_model()
 
@@ -190,7 +198,8 @@ class MeView(APIView):
         return Response(success_response({
             "username": user.username,
             "email": user.email,
-            "nickname": user.nickname
+            "nickname": user.nickname,
+            "date_joined": user.date_joined
         }))
 
 
@@ -201,12 +210,368 @@ class MyPageView(APIView):
         user = request.user
         user_data = user.data
 
+        # 가장 최근 라이딩 종료 시각
+        latest_ride = RideLog.objects.filter(user=user).order_by('-ended_at').first()
+        if latest_ride:
+            delta = now() - latest_ride.ended_at
+            if delta < timedelta(hours=24):
+                hours = int(delta.total_seconds() // 3600)
+                last_used_display = f"{hours}시간 전"
+            else:
+                days = delta.days
+                last_used_display = f"{days}일 전"
+        else:
+            last_used_display = "기록 없음"
+
+        # 누적 거리 계산
+        ride_stats = RideLog.objects.filter(user=user).aggregate(
+            total_distance_km=Sum("distance_km")
+        )
+        total_distance_km = ride_stats["total_distance_km"] or 0
+
         return Response(success_response(
             result={
                 "nickname": user.nickname,
                 "ride_score": user_data.ride_score,
                 "app_usage_count": user_data.app_usage_count,
                 "total_saved_money": user_data.total_saved_money,
-            },
-            message="마이페이지 정보 조회 성공"
+                "total_distance_km": round(total_distance_km, 2),
+                "last_used_at": last_used_display
+            }
         ))
+
+
+class DeleteAccountView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+        user.is_active = False
+        user.save()
+        return Response(success_response({"message": "계정이 비활성화되었습니다."}))
+    
+
+class UpdateUserDataView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            saved_money = int(request.data.get("saved_money", 0))
+            distance_km = float(request.data.get("distance_km", 0))
+            score_delta = int(request.data.get("score_delta", 0))
+        except (TypeError, ValueError):
+            return Response(error_response({"message": "입력값이 유효하지 않습니다."}), status=400)
+
+        if saved_money < 0 or distance_km < 0:
+            return Response(error_response({"message": "0 이상의 값이어야 합니다."}), status=400)
+
+        user_data = request.user.data
+
+        # ✅ 1. 점수 증가/감소, 범위 제한 (0~100)
+        user_data.ride_score = max(0, min(100, user_data.ride_score + score_delta))
+
+        # 2. 앱 사용 횟수 증가
+        user_data.app_usage_count += 1
+
+        # 3. 절약 금액, 주행 거리 증가
+        user_data.total_saved_money += saved_money
+        user_data.total_distance_km += distance_km
+
+        # 4. 저장
+        user_data.save()
+
+        return Response(success_response({
+            "ride_score": user_data.ride_score,
+            "app_usage_count": user_data.app_usage_count,
+            "total_saved_money": user_data.total_saved_money,
+            "total_distance_km": user_data.total_distance_km,
+            "updated_at": user_data.updated_at
+        }))
+
+    
+class RideLogCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            distance_km = float(request.data.get("distance_km"))
+            duration_seconds = float(request.data.get("duration_seconds"))
+            started_at = parse_datetime(request.data.get("started_at"))
+            ended_at = parse_datetime(request.data.get("ended_at"))
+            provider = request.data.get("provider")
+            saved_money = int(request.data.get("saved_money", 0))
+        except (TypeError, ValueError):
+            return Response(error_response({"message": "입력값이 유효하지 않습니다."}), status=400)
+
+        if not (0 < distance_km < 500 and 0 < duration_seconds < 100000):
+            return Response(error_response({"message": "이상한 주행 기록입니다."}), status=400)
+
+        if not (started_at and ended_at):
+            return Response(error_response({"message": "시작/종료 시간이 잘못되었습니다."}), status=400)
+
+
+        log = RideLog.objects.create(
+            user=request.user,
+            distance_km=distance_km,
+            duration_seconds=duration_seconds,
+            started_at=started_at,
+            ended_at=ended_at,
+            provider=provider,
+            saved_money=saved_money
+        )
+
+        return Response(success_response({
+            "id": log.id,
+            "distance_km": log.distance_km,
+            "duration_seconds": log.duration_seconds,
+            "started_at": log.started_at,
+            "ended_at": log.ended_at,
+        }), status=201)
+    
+
+
+class MyRankView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        period = request.query_params.get("period", "month")
+        today = now()
+
+        if period == "today":
+            logs = RideLog.objects.filter(started_at__date=today.date())
+        elif period == "month":
+            logs = RideLog.objects.filter(
+                started_at__date__gte=today.replace(day=1).date(),
+                started_at__date__lte=today.date()
+            )
+        elif period == "all":
+            logs = RideLog.objects.all()
+        else:
+            return Response(error_response({"period": "today, month, all 중 하나여야 합니다."}), status=400)
+
+        aggregated = logs.values("user").annotate(
+            total_distance=Sum("distance_km"),
+            max_distance=Max("distance_km"),
+            count_logs=Count("id"),
+            total_time=Sum("duration_seconds"),
+            max_time=Max("duration_seconds")
+        ).annotate(
+            distance_rank=Window(expression=Rank(), order_by=F("total_distance").desc()),
+            max_distance_rank=Window(expression=Rank(), order_by=F("max_distance").desc()),
+            count_rank=Window(expression=Rank(), order_by=F("count_logs").desc()),
+            total_time_rank=Window(expression=Rank(), order_by=F("total_time").desc()),
+            max_time_rank=Window(expression=Rank(), order_by=F("max_time").desc())
+        )
+
+        my = aggregated.filter(user=user.id).order_by("user").first()
+
+
+        if not my:
+            return Response(success_response({
+                "ranks": {},
+                "grade": "브론즈",
+                "message": "해당 기간에 기록이 없습니다."
+            }))
+
+        ranks = [
+            my["distance_rank"],
+            my["max_distance_rank"],
+            my["count_rank"],
+            my["total_time_rank"],
+            my["max_time_rank"],
+        ]
+        avg_rank = sum(ranks) / len(ranks)
+
+        if avg_rank <= 500:
+            grade = "플래티넘"
+        elif avg_rank <= 1000:
+            grade = "골드"
+        elif avg_rank <= 1500:
+            grade = "실버"
+        else:
+            grade = "브론즈"
+
+        return Response(success_response({
+            "period": period,
+            "ranks": {
+                "distance": my["distance_rank"],
+                "max_distance": my["max_distance_rank"],
+                "count": my["count_rank"],
+                "total_time": my["total_time_rank"],
+                "max_time": my["max_time_rank"]
+            },
+            "average_rank": round(avg_rank, 2),
+            "grade": grade
+        }))
+
+
+class RankingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        period = request.query_params.get("period", "month")
+        today = now()
+
+        if period == "today":
+            logs = RideLog.objects.filter(started_at__date=today.date())
+
+        elif period == "month":
+            logs = RideLog.objects.filter(
+                started_at__date__gte=today.replace(day=1).date(),
+                started_at__date__lte=today.date()
+            )
+
+        elif period == "all":
+            logs = RideLog.objects.all()
+        else:
+            return Response(error_response({"period": "today, month, all 중 하나여야 합니다."}), status=400)
+
+        # 사용자별 집계
+        user_stats = logs.values('user__nickname').annotate(
+            distance=Sum('distance_km'),
+            max_distance=Max('distance_km'),
+            count=Count('id'),
+            total_time=Sum('duration_seconds'),
+            max_time=Max('duration_seconds')
+        )
+
+        def get_top10(sorted_list, key):
+            top_items = [
+                {
+                    "rank": i + 1,
+                    "nickname": item["user__nickname"],
+                    "value": round(item[key], 2) if item[key] is not None else 0
+                }
+                for i, item in enumerate(sorted_list[:10])
+                if item[key] and item[key] > 0
+            ]
+            if not top_items:
+                return "아직 기록이 없습니다."
+            return top_items
+
+        return Response(success_response({
+            "period": period,
+            "distance": get_top10(sorted(user_stats, key=lambda x: x["distance"] or 0, reverse=True), "distance"),
+            "max_distance": get_top10(sorted(user_stats, key=lambda x: x["max_distance"] or 0, reverse=True), "max_distance"),
+            "count": get_top10(sorted(user_stats, key=lambda x: x["count"] or 0, reverse=True), "count"),
+            "total_time": get_top10(sorted(user_stats, key=lambda x: x["total_time"] or 0, reverse=True), "total_time"),
+            "max_time": get_top10(sorted(user_stats, key=lambda x: x["max_time"] or 0, reverse=True), "max_time"),
+        }))
+
+
+
+class GradeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        today = now()
+        logs = RideLog.objects.filter(
+            started_at__date__gte=today.replace(day=1).date(),
+            started_at__date__lte=today.date()
+        )
+
+        # 사용자별 집계
+        aggregated = logs.values("user").annotate(
+            total_distance=Sum("distance_km"),
+            max_distance=Max("distance_km"),
+            count_logs=Count("id"),
+            total_time=Sum("duration_seconds"),
+            max_time=Max("duration_seconds")
+        ).annotate(
+            distance_rank=Window(expression=Rank(), order_by=F("total_distance").desc()),
+            max_distance_rank=Window(expression=Rank(), order_by=F("max_distance").desc()),
+            count_rank=Window(expression=Rank(), order_by=F("count_logs").desc()),
+            total_time_rank=Window(expression=Rank(), order_by=F("total_time").desc()),
+            max_time_rank=Window(expression=Rank(), order_by=F("max_time").desc())
+        )
+
+        my = aggregated.filter(user=user.id).order_by("user").first()
+
+        if not my:
+            return Response(success_response({
+                "grade": "브론즈",
+                "message": "이번달 주행 기록이 없어 기본 등급이 적용됩니다."
+            }))
+
+        # 평균 순위
+        ranks = [
+            my["distance_rank"],
+            my["max_distance_rank"],
+            my["count_rank"],
+            my["total_time_rank"],
+            my["max_time_rank"],
+        ]
+        avg_rank = sum(ranks) / len(ranks)
+
+        if avg_rank <= 500:
+            grade = "플래티넘"
+        elif avg_rank <= 1000:
+            grade = "골드"
+        elif avg_rank <= 1500:
+            grade = "실버"
+        else:
+            grade = "브론즈"
+
+        return Response(success_response({
+            "grade": grade,
+            "average_rank": round(avg_rank, 2)
+        }))
+    
+
+
+class FeedbackView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        message = request.data.get("message", "").strip()
+
+        if not message:
+            return Response(error_response({"message": "피드백 내용을 입력해주세요."}), status=400)
+
+        Feedback.objects.create(user=request.user, message=message)
+
+        return Response(success_response({"message": "피드백이 정상적으로 접수되었습니다."}))
+    
+
+class NoticeListView(APIView):
+    permission_classes = []
+
+    def get(self, request):
+        notices = Notice.objects.filter(is_active=True).order_by("-created_at")[:10]
+
+        data = [
+            {
+                "title": notice.title,
+                "content": notice.content,
+                "created_at": notice.created_at.strftime("%Y-%m-%d %H:%M")
+            }
+            for notice in notices
+        ]
+
+        return Response(success_response(data))
+    
+
+class RideLogListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        cutoff = now() - timedelta(days=14)
+        logs = RideLog.objects.filter(user=request.user, started_at__gte=cutoff).order_by('-started_at')
+
+        data = [
+            {
+                "distance_km": log.distance_km,
+                "duration_seconds": log.duration_seconds,
+                "duration_display": f"{int(log.duration_seconds // 60)}분 {int(log.duration_seconds % 60)}초",
+                "saved_money": log.saved_money,
+                "provider": log.provider,
+                "started_at": log.started_at,
+                "ended_at": log.ended_at,
+                "created_at": log.created_at.strftime("%Y-%m-%d %H:%M")
+            }
+            for log in logs
+        ]
+
+        return Response(success_response(data))
