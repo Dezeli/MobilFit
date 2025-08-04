@@ -1,131 +1,11 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, ScrollView, GestureResponderEvent, Image, PanGestureHandler, PanGestureHandlerGestureEvent, Platform } from "react-native";
+import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, ScrollView, GestureResponderEvent, Image, PanGestureHandler, PanGestureHandlerGestureEvent, Platform, TextInput, Keyboard } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
-import axios from "axios";
+import { apiPost, apiGet } from "../../lib/api";
+import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
-import { getDistance } from "geolib";
 
 const { width: screenWidth } = Dimensions.get('window');
-
-const ORS_API_KEY = Constants.expoConfig?.extra?.orsApiKey;
-const GOOGLE_API_KEY = Constants.expoConfig?.extra?.googleApiKey;
-
-
-const calculateAvgSlopePercent = (elevations: number[], coords: number[][]): number => {
-  if (elevations.length < 2 || coords.length < 2) return 0;
-  const latlngCoords = coords.map(([lng, lat]) => [lat, lng]);
-
-  let uphill = 0;
-  for (let i = 1; i < elevations.length; i++) {
-    if (elevations[i] > elevations[i - 1]) {
-      uphill += elevations[i] - elevations[i - 1];
-    }
-  }
-
-  let totalDist = 0;
-  for (let i = 1; i < latlngCoords.length; i++) {
-    totalDist += getDistance(
-      { latitude: latlngCoords[i - 1][0], longitude: latlngCoords[i - 1][1] },
-      { latitude: latlngCoords[i][0], longitude: latlngCoords[i][1] }
-    );
-  }
-
-  if (totalDist === 0) return 0;
-  return Number(((uphill / totalDist) * 100).toFixed(2));
-};
-
-const calculateElevationWeight = (elevations: number[], coords: number[][]): number => {
-  let uphill = 0;
-  for (let i = 1; i < elevations.length; i++) {
-    if (elevations[i] > elevations[i - 1]) {
-      uphill += elevations[i] - elevations[i - 1];
-    }
-  }
-
-  let totalDist = 0;
-  for (let i = 1; i < coords.length; i++) {
-    totalDist += getDistance(
-      { latitude: coords[i - 1][1], longitude: coords[i - 1][0] },
-      { latitude: coords[i][1], longitude: coords[i][0] }
-    );
-  }
-
-  const gradient = uphill / totalDist;
-  return gradient * 5 + 1;
-};
-
-const getBBoxFromCoordinates = (coords: number[][]): [number, number, number, number] => {
-  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-  coords.forEach(([lng, lat]) => {
-    if (lat < minLat) minLat = lat;
-    if (lat > maxLat) maxLat = lat;
-    if (lng < minLng) minLng = lng;
-    if (lng > maxLng) maxLng = lng;
-  });
-  return [minLat, minLng, maxLat, maxLng];
-};
-
-const fetchCrossingsInBBox = async (bbox: [number, number, number, number]) => {
-  const [south, west, north, east] = bbox;
-  const query = `
-    [out:json];
-    (
-      node["highway"="crossing"](${south},${west},${north},${east});
-    );
-    out body;
-  `;
-  try {
-    const response = await axios.post("https://overpass-api.de/api/interpreter", query, {
-      headers: { "Content-Type": "text/plain" },
-    });
-    return response.data?.elements || [];
-  } catch (err) {
-    console.error("Overpass API 오류:", err);
-    return [];
-  }
-};
-
-const filterNearbyCrossings = (
-  crossings: { lat: number; lon: number }[],
-  routeCoords: number[][],
-  threshold = 10
-): { lat: number; lng: number }[] => {
-  return crossings
-    .filter((crossing) =>
-      routeCoords.some(([lng, lat]) => {
-        const dist = getDistance(
-          { latitude: crossing.lat, longitude: crossing.lon },
-          { latitude: lat, longitude: lng }
-        );
-        return dist <= threshold;
-      })
-    )
-    .map((c) => ({ lat: c.lat, lng: c.lon }));
-};
-
-const deduplicateCloseCrossings = (
-  crossings: { lat: number; lng: number }[],
-  threshold = 30
-): { lat: number; lng: number; count: number }[] => {
-  const clusters: { lat: number; lng: number; count: number }[] = [];
-  crossings.forEach((crossing) => {
-    const cluster = clusters.find((c) => {
-      const dist = getDistance(
-        { latitude: c.lat, longitude: c.lng },
-        { latitude: crossing.lat, longitude: crossing.lng }
-      );
-      return dist <= threshold;
-    });
-    if (cluster) {
-      cluster.lat = (cluster.lat * cluster.count + crossing.lat) / (cluster.count + 1);
-      cluster.lng = (cluster.lng * cluster.count + crossing.lng) / (cluster.count + 1);
-      cluster.count += 1;
-    } else {
-      clusters.push({ lat: crossing.lat, lng: crossing.lng, count: 1 });
-    }
-  });
-  return clusters;
-};
 
 const getBrandLogo = (brandName: string) => {
   switch(brandName) {
@@ -135,6 +15,7 @@ const getBrandLogo = (brandName: string) => {
       return require("../../assets/images/socar.png");
     case "지쿠(시간제)":
     case "지쿠(거리제)":
+    case "지쿠":
       return require("../../assets/images/jiku.jpg");
     case "티맵":
       return require("../../assets/images/tmap.jpg");
@@ -143,35 +24,18 @@ const getBrandLogo = (brandName: string) => {
   }
 };
 
-const calculateBikeFareList = (
-  adjustedTimeMin: number,
-  distanceKm: number
-): { name: string; fare: number; isRecommended?: boolean }[] => {
-  const bikes = [
-    { name: "카카오", base: 500, perMin: 160, perKm: 0 },
-    { name: "쏘카", base: 600, perMin: 150, perKm: 0 },
-    { name: "지쿠(시간제)", base: 600, perMin: 180, perKm: 0 },
-    { name: "티맵", base: 1000, perMin: 130, perKm: 0 },
-    { name: "지쿠(거리제)", base: 0, perMin: 30, perKm: 600 },
-  ];
-
-  const fares = bikes.map((bike) => {
-    const fare =
-      (bike.base ?? 0) +
-      (bike.perMin ?? 0) * adjustedTimeMin +
-      (bike.perKm ?? 0) * distanceKm;
-    return { name: bike.name, fare: Math.round(fare) };
-  });
-
-  fares.sort((a, b) => a.fare - b.fare);
-  if (fares.length > 0) fares[0].isRecommended = true;
-  return fares;
-};
+interface SearchResult {
+  type: "address" | "place";
+  name: string;
+  address: string;
+  x: string;
+  y: string;
+}
 
 const Explore: React.FC = () => {
   const [startPoint, setStartPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [endPoint, setEndPoint] = useState<{ lat: number; lng: number } | null>(null);
-  const [preference, setPreference] = useState<"fastest" | "shortest" | "recommended">("recommended");
+  const [preference, setPreference] = useState<"easiest" | "shortest" | "recommended">("recommended");
   const [hasRoute, setHasRoute] = useState(false);
   const [isMinimized, setIsMinimized] = useState(true);
   const [routeInfo, setRouteInfo] = useState<any>(null);
@@ -180,12 +44,52 @@ const Explore: React.FC = () => {
   const [allRouteData, setAllRouteData] = useState<{[key: string]: any}>({});
   const [currentRouteIndex, setCurrentRouteIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [routeStartTime, setRouteStartTime] = useState<Date | null>(null);
+  const [isRideInProgress, setIsRideInProgress] = useState(false);
+  const [hasArrived, setHasArrived] = useState(false);
   
+  // 검색 관련 state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: 37.497942, lng: 127.027621 });
+  const [currentSearchPage, setCurrentSearchPage] = useState(0);
+  const [searchError, setSearchError] = useState<string>("");
+  
+  // 지도 직접 선택 모드
+  const [isSelectingStart, setIsSelectingStart] = useState(false);
+  const [isSelectingEnd, setIsSelectingEnd] = useState(false);
+  
+  // 선택된 장소 이름 저장
+  const [startPointName, setStartPointName] = useState<string>("");
+  const [endPointName, setEndPointName] = useState<string>("");
+  
+  // 검색바와 지도선택바 표시 여부
+  const [showTopBars, setShowTopBars] = useState(true);
+  
+  // 경로 에러 상태
+  const [routeError, setRouteError] = useState<string>("");
+  
+  // 검색 결과 없음 상태 추가
+  const [hasNoSearchResults, setHasNoSearchResults] = useState(false);
+  
+  // bottomSheet 높이 상수
+  const BOTTOM_SHEET_HEIGHTS = {
+    INITIAL: 80,        // 초기 상태 (출발지/도착지 설정하세요)
+    LOADING: 150,       // 경로 탐색중 (유일하게 150)
+    SEARCH_MIN: 80,     // 검색 결과 접힌 상태  
+    SEARCH_MAX: 400,    // 검색 결과 펼친 상태
+    ROUTE_MIN: 80,      // 경로 결과 접힌 상태
+    ROUTE_MAX: 400,     // 경로 결과 펼친 상태
+  };
   const webViewRef = useRef<any>(null);
-  const bottomSheetHeight = useRef(new Animated.Value(80)).current;
+  const bottomSheetHeight = useRef(new Animated.Value(BOTTOM_SHEET_HEIGHTS.INITIAL)).current;
   const spinValue = useRef(new Animated.Value(0)).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
   const contentTranslateX = useRef(new Animated.Value(0)).current;
+  const searchTranslateX = useRef(new Animated.Value(0)).current;
   const [touchStart, setTouchStart] = useState<{x: number, y: number} | null>(null);
 
   // 안드로이드 호환 로딩 애니메이션
@@ -231,6 +135,232 @@ const Explore: React.FC = () => {
 
   const [routeTypes, setRouteTypes] = useState<{ key: string; label: string }[]>([]);
 
+  // 지도 검색 API 호출
+  const searchPlaces = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      setHasNoSearchResults(false);
+      return;
+    }
+
+    // 키보드 숨기기
+    Keyboard.dismiss();
+
+    setIsSearching(true);
+    setHasNoSearchResults(false);
+    setSearchError("");
+    
+    try {
+      // 지도 중심점 좌표 요청
+      webViewRef.current?.postMessage(JSON.stringify({ type: "getMapCenter" }));
+      
+      // 잠시 대기 후 API 호출
+      setTimeout(async () => {
+        try {
+          // 액세스 토큰 가져오기
+          const accessToken = await SecureStore.getItemAsync("accessToken");
+          
+          if (!accessToken) {
+            setSearchError("로그인이 필요합니다.");
+            setSearchResults([]);
+            setShowSearchResults(true);
+            setHasNoSearchResults(true);
+            
+            Animated.spring(bottomSheetHeight, {
+              toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MAX,
+              useNativeDriver: false,
+            }).start();
+            setIsMinimized(false);
+            return;
+          }
+          
+          const apiUrl = `/api/v1/ors/search/?query=${encodeURIComponent(query)}&x=${mapCenter.lng}&y=${mapCenter.lat}`;
+          
+          const response = await apiGet(apiUrl, accessToken);
+          
+          if (response.success && response.data && response.data.results) {
+            const results = response.data.results.slice(0, 8); // 최대 8개
+            
+            if (results.length === 0) {
+              // 검색 결과가 0개인 경우
+              setSearchResults([]);
+              setShowSearchResults(true);
+              setHasNoSearchResults(true);
+              setCurrentSearchPage(0);
+              
+              Animated.spring(bottomSheetHeight, {
+                toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MAX,
+                useNativeDriver: false,
+              }).start();
+              setIsMinimized(false);
+            } else {
+              // 검색 결과가 있는 경우
+              setSearchResults(results);
+              setShowSearchResults(true);
+              setHasNoSearchResults(false);
+              setCurrentSearchPage(0);
+              
+              Animated.spring(bottomSheetHeight, {
+                toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MAX,
+                useNativeDriver: false,
+              }).start();
+              setIsMinimized(false);
+            }
+          } else {
+            // API 실패 또는 데이터 없음
+            setSearchResults([]);
+            setShowSearchResults(true);
+            setHasNoSearchResults(true);
+            setSearchError("검색 중 오류가 발생했습니다.");
+            
+            Animated.spring(bottomSheetHeight, {
+              toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MAX,
+              useNativeDriver: false,
+            }).start();
+            setIsMinimized(false);
+          }
+        } catch (error) {
+          // API 호출 오류
+          setSearchResults([]);
+          setShowSearchResults(true);
+          setHasNoSearchResults(true);
+          setSearchError("네트워크 오류가 발생했습니다.");
+          
+          Animated.spring(bottomSheetHeight, {
+            toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MAX,
+            useNativeDriver: false,
+          }).start();
+          setIsMinimized(false);
+        }
+      }, 100);
+    } catch (error) {
+      // 전체 함수 오류
+      setSearchResults([]);
+      setShowSearchResults(true);
+      setHasNoSearchResults(true);
+      setSearchError("예상치 못한 오류가 발생했습니다.");
+      
+      Animated.spring(bottomSheetHeight, {
+        toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MAX,
+        useNativeDriver: false,
+      }).start();
+      setIsMinimized(false);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // 지도에서 직접 선택 모드 시작/취소
+  const startMapSelection = (type: 'start' | 'end') => {
+    if (type === 'start') {
+      if (isSelectingStart) {
+        // 이미 선택 모드인 경우 취소
+        setIsSelectingStart(false);
+      } else {
+        // 선택 모드 활성화
+        setIsSelectingStart(true);
+        setIsSelectingEnd(false);
+      }
+    } else {
+      if (isSelectingEnd) {
+        // 이미 선택 모드인 경우 취소
+        setIsSelectingEnd(false);
+      } else {
+        // 선택 모드 활성화
+        setIsSelectingEnd(true);
+        setIsSelectingStart(false);
+      }
+    }
+    setIsRouteFixed(false);
+  };
+
+  // 지도에서 직접 선택 완료
+  const completeMapSelection = () => {
+    setIsSelectingStart(false);
+    setIsSelectingEnd(false);
+  };
+  const setPointFromSearch = (result: SearchResult, type: 'start' | 'end') => {
+    const point = {
+      lat: parseFloat(result.y),
+      lng: parseFloat(result.x)
+    };
+
+    if (type === 'start') {
+      setStartPoint(point);
+      setStartPointName(result.name);
+      // 지도에 출발지 마커 표시
+      webViewRef.current?.postMessage(JSON.stringify({
+        type: "setStartMarker",
+        lat: point.lat,
+        lng: point.lng,
+        name: result.name
+      }));
+    } else {
+      setEndPoint(point);
+      setEndPointName(result.name);
+      // 지도에 도착지 마커 표시
+      webViewRef.current?.postMessage(JSON.stringify({
+        type: "setEndMarker",
+        lat: point.lat,
+        lng: point.lng,
+        name: result.name
+      }));
+    }
+
+    // 출발지와 도착지가 모두 설정되었을 때만 경로 탐색
+    const newStartPoint = type === 'start' ? point : startPoint;
+    const newEndPoint = type === 'end' ? point : endPoint;
+    
+    if (newStartPoint && newEndPoint) {
+      setShowSearchResults(false);
+      setHasNoSearchResults(false);
+      // bottomSheet 크기를 로딩 크기로 조정한 후 경로 탐색 시작
+      Animated.spring(bottomSheetHeight, {
+        toValue: BOTTOM_SHEET_HEIGHTS.LOADING, // 150 (유일하게 150)
+        useNativeDriver: false,
+      }).start(() => {
+        drawAllRoutes(newStartPoint, newEndPoint);
+      });
+    } else {
+      // 하나만 설정된 경우 검색 결과를 유지하고 bottomSheet 높이만 조정
+      Animated.spring(bottomSheetHeight, {
+        toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MIN, // 80
+        useNativeDriver: false,
+      }).start();
+      setIsMinimized(true);
+    }
+  };
+
+  // 검색 결과 페이지 변경
+  const handleSearchPageChange = (direction: 'left' | 'right') => {
+    const totalPages = Math.ceil(searchResults.length / 4);
+    let newPage = currentSearchPage;
+    
+    if (direction === 'left' && currentSearchPage > 0) {
+      newPage = currentSearchPage - 1;
+    } else if (direction === 'right' && currentSearchPage < totalPages - 1) {
+      newPage = currentSearchPage + 1;
+    }
+    
+    if (newPage !== currentSearchPage) {
+      const slideDirection = direction === 'right' ? -1 : 1;
+      
+      Animated.timing(searchTranslateX, {
+        toValue: slideDirection * screenWidth,
+        duration: 250,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentSearchPage(newPage);
+        searchTranslateX.setValue(-slideDirection * screenWidth);
+        Animated.timing(searchTranslateX, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }).start();
+      });
+    }
+  };
 
   const handleTouchStart = (event: GestureResponderEvent) => {
     const { pageX, pageY } = event.nativeEvent;
@@ -238,95 +368,129 @@ const Explore: React.FC = () => {
   };
 
   const handleTouchMove = (event: GestureResponderEvent) => {
-    if (!touchStart || !hasRoute) return;
+    if (!touchStart) return;
 
     const { pageX, pageY } = event.nativeEvent;
     const deltaX = pageX - touchStart.x;
     const deltaY = pageY - touchStart.y;
 
-    // 수평 스와이프가 더 큰 경우에만 처리
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
-      // 경계값 설정 (화면의 30%까지만 이동)
-      const maxTranslate = screenWidth * 0.3;
-      const clampedDeltaX = Math.max(-maxTranslate, Math.min(maxTranslate, deltaX));
-      
-      contentTranslateX.setValue(clampedDeltaX);
+    // 검색 결과 표시 중일 때는 검색 페이지 스와이프 (검색 결과가 있을 때만)
+    if (showSearchResults && !hasNoSearchResults) {
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        const maxTranslate = screenWidth * 0.3;
+        const clampedDeltaX = Math.max(-maxTranslate, Math.min(maxTranslate, deltaX));
+        searchTranslateX.setValue(clampedDeltaX);
+      }
+    }
+    // 경로 표시 중일 때는 경로 스와이프
+    else if (hasRoute) {
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        const maxTranslate = screenWidth * 0.3;
+        const clampedDeltaX = Math.max(-maxTranslate, Math.min(maxTranslate, deltaX));
+        contentTranslateX.setValue(clampedDeltaX);
+      }
     }
   };
 
   const handleTouchEnd = (event: GestureResponderEvent) => {
-    if (!touchStart || !hasRoute) return;
+    if (!touchStart) return;
 
     const { pageX, pageY } = event.nativeEvent;
     const deltaX = pageX - touchStart.x;
     const deltaY = pageY - touchStart.y;
 
-    // 임계값 설정
     const horizontalThreshold = 60;
     const verticalThreshold = 30;
 
-    // 수평 스와이프가 더 큰 경우 (경로 변경)
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > horizontalThreshold) {
-      if (deltaX > 0) {
-        // 오른쪽 스와이프 - 이전 경로
-        const newIndex = Math.max(0, currentRouteIndex - 1);
-        changeRoute(newIndex);
-      } else {
-        // 왼쪽 스와이프 - 다음 경로
-        const newIndex = Math.min(routeTypes.length - 1, currentRouteIndex + 1);
-        changeRoute(newIndex);
+    // 검색 결과 표시 중일 때
+    if (showSearchResults) {
+      // 검색 결과가 있을 때만 페이지 스와이프 허용
+      if (!hasNoSearchResults && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > horizontalThreshold) {
+        if (deltaX > 0) {
+          handleSearchPageChange('left');
+        } else {
+          handleSearchPageChange('right');
+        }
+      } else if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > verticalThreshold) {
+        if (deltaY > 0) {
+          setIsMinimized(true);
+          Animated.spring(bottomSheetHeight, {
+            toValue: 80,
+            useNativeDriver: false,
+          }).start();
+        } else {
+          setIsMinimized(false);
+          Animated.spring(bottomSheetHeight, {
+            toValue: 400,
+            useNativeDriver: false,
+          }).start();
+        }
+      }
+      
+      // 검색 결과가 있을 때만 스와이프 애니메이션 복원
+      if (!hasNoSearchResults) {
+        Animated.spring(searchTranslateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 100,
+          friction: 8,
+        }).start();
       }
     }
-    // 수직 스와이프가 더 큰 경우 (펼치기/접기)
-    else if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > verticalThreshold) {
-      if (deltaY > 0) {
-        // 아래로 스와이프 - 접기
-        setIsMinimized(true);
-        Animated.spring(bottomSheetHeight, {
-          toValue: 80,
-          useNativeDriver: false,
-        }).start();
-      } else {
-        // 위로 스와이프 - 펼치기
-        setIsMinimized(false);
-        Animated.spring(bottomSheetHeight, {
-          toValue: 400,
-          useNativeDriver: false,
-        }).start();
+    // 경로 표시 중일 때
+    else if (hasRoute) {
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > horizontalThreshold) {
+        if (deltaX > 0) {
+          const newIndex = Math.max(0, currentRouteIndex - 1);
+          changeRoute(newIndex);
+        } else {
+          const newIndex = Math.min(routeTypes.length - 1, currentRouteIndex + 1);
+          changeRoute(newIndex);
+        }
+      } else if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > verticalThreshold) {
+        if (deltaY > 0) {
+          setIsMinimized(true);
+          Animated.spring(bottomSheetHeight, {
+            toValue: BOTTOM_SHEET_HEIGHTS.ROUTE_MIN, // 80
+            useNativeDriver: false,
+          }).start();
+        } else {
+          setIsMinimized(false);
+          Animated.spring(bottomSheetHeight, {
+            toValue: BOTTOM_SHEET_HEIGHTS.ROUTE_MAX, // 430
+            useNativeDriver: false,
+          }).start();
+        }
       }
-    }
 
-    // 내용을 원래 위치로 복원
-    Animated.spring(contentTranslateX, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 100,
-      friction: 8,
-    }).start();
+      Animated.spring(contentTranslateX, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }).start();
+    }
 
     setTouchStart(null);
   };
 
   const changeRoute = (newIndex: number) => {
     if (newIndex !== currentRouteIndex && allRouteData && newIndex >= 0 && newIndex < routeTypes.length) {
-      const direction = newIndex > currentRouteIndex ? -1 : 1; // -1은 왼쪽으로, 1은 오른쪽으로
+      const direction = newIndex > currentRouteIndex ? -1 : 1;
       
-      // 현재 내용을 반대 방향으로 슬라이드 아웃
       Animated.timing(contentTranslateX, {
         toValue: direction * screenWidth,
         duration: 250,
         useNativeDriver: true,
       }).start(() => {
-        // 경로 데이터 변경
         setCurrentRouteIndex(newIndex);
         const routeKey = routeTypes[newIndex].key;
         
         if (allRouteData[routeKey]) {
           displayRoute(allRouteData[routeKey]);
-          setPreference(routeKey as "fastest" | "shortest" | "recommended");
+          setPreference(routeKey as "easiest" | "shortest" | "recommended");
         }
         
-        // 새 내용을 반대쪽에서 슬라이드 인
         contentTranslateX.setValue(-direction * screenWidth);
         Animated.timing(contentTranslateX, {
           toValue: 0,
@@ -337,149 +501,73 @@ const Explore: React.FC = () => {
     }
   };
 
-  const fetchRoute = async (start: any, end: any, selectedPreference: string) => {
-    if (!ORS_API_KEY) return null;
-    try {
-      const response = await axios.post(
-        "https://api.openrouteservice.org/v2/directions/cycling-regular/geojson",
-        {
-          coordinates: [
-            [start.lng, start.lat],
-            [end.lng, end.lat],
-          ],
-          preference: selectedPreference,
-          instructions: true,
-          geometry_simplify: false,
-          extra_info: ["waytype"],
-        },
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: ORS_API_KEY,
-          },
-        }
-      );
-      const feature = response.data.features?.[0];
-      const coordinates = feature?.geometry?.coordinates;
-      const waytypeInfo = feature?.properties?.extras?.waytype?.values;
-      const duration = feature?.properties?.summary?.duration;
-      const distance = feature?.properties?.summary?.distance;
-      if (!coordinates || !Array.isArray(waytypeInfo)) return null;
-
-      const waytypes = new Array(coordinates.length - 1).fill(0);
-      waytypeInfo.forEach(([startIdx, endIdx, type]: [number, number, number]) => {
-        for (let i = startIdx; i < endIdx; i++) {
-          waytypes[i] = type;
-        }
-      });
-
-      return { coordinates, waytypes, duration, distance };
-    } catch {
-      return null;
-    }
-  };
-
-  const getGoogleElevations = async (coords: number[][]): Promise<number[]> => {
-    if (!GOOGLE_API_KEY) return [];
-    const locationsParam = coords.map(([lng, lat]) => `${lat},${lng}`).join("|");
-    const url = `https://maps.googleapis.com/maps/api/elevation/json?locations=${encodeURIComponent(locationsParam)}&key=${GOOGLE_API_KEY}`;
-    try {
-      const response = await axios.get(url);
-      return response.data.results?.map((r: any) => r.elevation) || [];
-    } catch {
-      return [];
-    }
-  };
-
-  const expandBottomSheet = () => {
-    Animated.spring(bottomSheetHeight, {
-      toValue: 430,
-      useNativeDriver: false,
-    }).start();
-  };
-
   const drawAllRoutes = async (start: any, end: any) => {
+    setShowTopBars(false); // 경로 탐색 시작 시 상단 바들 숨김
     webViewRef.current?.postMessage(JSON.stringify({ type: "setSearching", value: true }));
     setIsLoading(true);
-
-    const originalTypes = ["recommended", "fastest", "shortest"];
-    const allData: { [key: string]: any } = {};
+    setRouteError("");
+    // 경로 탐색 시작 시간 기록
+    setRouteStartTime(new Date());
 
     try {
-      // 1. 모든 경로 받아오기
-      for (const routeType of originalTypes) {
-        const routeResult = await fetchRoute(start, end, routeType);
-        if (routeResult) {
-          const { coordinates, waytypes, duration, distance } = routeResult;
 
-          const elevations = await getGoogleElevations(coordinates);
-          const elevationWeight = calculateElevationWeight(elevations, coordinates);
-          const avgSlope = calculateAvgSlopePercent(elevations, coordinates);
-
-          const bbox = getBBoxFromCoordinates(coordinates);
-          const rawCrossings = await fetchCrossingsInBBox(bbox);
-          const filtered = filterNearbyCrossings(rawCrossings, coordinates);
-          const deduped = deduplicateCloseCrossings(filtered);
-
-          const bikeLaneRatio = waytypes.filter(w => w === 6).length / waytypes.length;
-          const nonBikeLaneRatio = 1 - bikeLaneRatio;
-          const bikeAdjustedTimeSec = (bikeLaneRatio * duration * 0.9) + (nonBikeLaneRatio * duration);
-
-          let crossingDelayMin = 0;
-          for (const c of deduped) {
-            const count = c.count;
-            crossingDelayMin += count >= 4 ? 1.0 : count === 3 ? 0.9 : count === 2 ? 0.7 : count === 1 ? 0.4 : 0;
-          }
-
-          const adjustedTimeMin = (bikeAdjustedTimeSec / 60) * elevationWeight + crossingDelayMin;
-          const distanceKm = distance / 1000;
-          const fareList = calculateBikeFareList(adjustedTimeMin, distanceKm);
-
-          allData[routeType] = {
-            coordinates,
-            waytypes,
-            crossings: deduped.map(({ lat, lng }) => ({ lat, lng })),
-            info: {
-              distance: Math.round(distance),
-              adjustedTimeMin: Number(adjustedTimeMin.toFixed(2)),
-              avgSlope,
-              crossingCount: deduped.length,
-              bikeLaneRatio: Number((bikeLaneRatio * 100).toFixed(1))
-            },
-            fareList
-          };
-        }
+      const accessToken = await SecureStore.getItemAsync("accessToken");
+      if (!accessToken) {
+        throw new Error("로그인이 필요합니다.");
       }
-
-      const byAdjustedTime = Object.entries(allData).sort(([, a], [, b]) => a.info.adjustedTimeMin - b.info.adjustedTimeMin)[0][0];
-      const byBikeLane = Object.entries(allData)
-        .sort(([, a], [, b]) => {
-          if (b.info.bikeLaneRatio !== a.info.bikeLaneRatio) {
-            return b.info.bikeLaneRatio - a.info.bikeLaneRatio;
-          }
-          if (a.info.avgSlope !== b.info.avgSlope) {
-            return a.info.avgSlope - b.info.avgSlope;
-          }
-          return a.info.crossingCount - b.info.crossingCount;
-        })[0][0];
-      const byDistance = Object.entries(allData).sort(([, a], [, b]) => a.info.distance - b.info.distance)[0][0];
-
-      const finalOrder = [byAdjustedTime, byBikeLane, byDistance];
-      const uniqueOrder = [...new Set(finalOrder)];
-
-      const newRouteTypes = uniqueOrder.map((key, index) => {
-        let label = "";
-        if (key === byAdjustedTime) label = "추천 경로";
-        else if (key === byBikeLane) label = "편한길 우선";
-        else if (key === byDistance) label = "최단 거리";
-        else label = key;
-        return { key, label };
+      const response = await apiPost("/api/v1/ors/route/", {
+        start: { lat: start.lat, lng: start.lng },
+        end: { lat: end.lat, lng: end.lng }
       });
 
+      if (!response.success || !response.data) {
+        throw new Error("경로 탐색 API 응답 오류");
+      }
+
+      const { recommended, easiest, shortest } = response.data;
       
+      // 모든 경로가 없는 경우
+      if (!recommended && !easiest && !shortest) {
+        throw new Error("경로를 찾을 수 없습니다");
+      }
+
+      const allData: { [key: string]: any } = {};
+
+      const processRouteData = (routeData: any, routeType: string) => {
+        if (!routeData) return;
+
+        allData[routeType] = {
+          coordinates: routeData.coordinates,
+          waytypes: routeData.waytypes,
+          crossings: routeData.crossings,
+          info: routeData.info,
+          fareList: routeData.fareList
+        };
+      };
+
+      processRouteData(recommended, 'recommended');
+      processRouteData(easiest, 'easiest');
+      processRouteData(shortest, 'shortest');
+
+      // 유효한 경로가 하나도 없는 경우
+      if (Object.keys(allData).length === 0) {
+        throw new Error("유효한 경로를 찾을 수 없습니다");
+      }
+
+      const routeTypeLabels = {
+        recommended: "추천 경로",
+        easiest: "편한길 우선", 
+        shortest: "최단 거리"
+      };
+
+      const newRouteTypes = Object.keys(allData).map(key => ({
+        key,
+        label: routeTypeLabels[key as keyof typeof routeTypeLabels] || key
+      }));
+
       setAllRouteData(allData);
       setCurrentRouteIndex(0);
-      setPreference(newRouteTypes[0].key);
+      setPreference(newRouteTypes[0].key as "easiest" | "shortest" | "recommended");
       displayRoute(allData[newRouteTypes[0].key]);
 
       setRouteTypes(newRouteTypes);
@@ -487,15 +575,28 @@ const Explore: React.FC = () => {
       setHasRoute(true);
       setIsRouteFixed(true);
       Animated.spring(bottomSheetHeight, {
-        toValue: 80,
+        toValue: BOTTOM_SHEET_HEIGHTS.ROUTE_MIN, // 80
         useNativeDriver: false,
       }).start();
+      setIsMinimized(true);
+    } catch (error) {
+      setRouteError(error instanceof Error ? error.message : "경로 탐색 중 오류가 발생했습니다");
+      setHasRoute(false);
+      setIsRouteFixed(false);
+      setRouteInfo(null);
+      setFareList([]);
+      
+      // 에러 상태에서 bottomSheet 높이를 430으로 설정
+      Animated.spring(bottomSheetHeight, {
+        toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MAX, // 430
+        useNativeDriver: false,
+      }).start();
+      setIsMinimized(false);
     } finally {
       webViewRef.current?.postMessage(JSON.stringify({ type: "setSearching", value: false }));
       setIsLoading(false);
     }
   };
-
 
   const displayRoute = async (routeData: any) => {
     const { coordinates, waytypes, crossings } = routeData;
@@ -506,7 +607,7 @@ const Explore: React.FC = () => {
         const chunkCoords = coordinates.slice(i, i + chunkSize);
         const chunkWaytypes = waytypes.slice(i, i + chunkSize);
 
-        await new Promise((res) => setTimeout(res, 30)); // 30~50ms 쉬면서 나눠 전송
+        await new Promise((res) => setTimeout(res, 30));
 
         webViewRef.current?.postMessage(
           JSON.stringify({
@@ -532,7 +633,6 @@ const Explore: React.FC = () => {
       );
     }
 
-    // 공통적으로 신호등은 같이 전송
     webViewRef.current?.postMessage(
       JSON.stringify({
         type: "drawCrossings",
@@ -544,42 +644,74 @@ const Explore: React.FC = () => {
     setFareList(routeData.fareList);
   };
 
-
   const handleMessage = (event: WebViewMessageEvent) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      const clickedPoint = { lat: data.lat, lng: data.lng };
       
-      if (isRouteFixed) {
+      // 지도 중심점 좌표 업데이트
+      if (data.type === "mapCenter") {
+        setMapCenter({ lat: data.lat, lng: data.lng });
         return;
       }
       
-      if (data.clickCount === 1) {
-        setStartPoint(clickedPoint);
-        setEndPoint(null);
-        setHasRoute(false);
-        Animated.spring(bottomSheetHeight, {
-          toValue: 80,
-          useNativeDriver: false,
-        }).start();
-      } else if (data.clickCount === 2) {
-        setEndPoint(clickedPoint);
-        if (startPoint) {
-          Animated.spring(bottomSheetHeight, {
-            toValue: 150,
-            useNativeDriver: false,
-          }).start();
-          drawAllRoutes(startPoint, clickedPoint);
+      // 지도 클릭 처리 - 지도 직접 선택 모드일 때만 동작
+      if (data.type === "mapClick") {
+        const clickedPoint = { lat: data.lat, lng: data.lng };
+        
+        if (isSelectingStart) {
+          setStartPoint(clickedPoint);
+          setStartPointName("지도에서 선택한 출발지");
+          setIsSelectingStart(false);
+          
+          // 지도에 출발지 마커 표시
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: "setStartMarker",
+            lat: clickedPoint.lat,
+            lng: clickedPoint.lng,
+            name: "지도에서 선택한 출발지"
+          }));
+          
+        } else if (isSelectingEnd) {
+          setEndPoint(clickedPoint);
+          setEndPointName("지도에서 선택한 도착지");
+          setIsSelectingEnd(false);
+          
+          // 지도에 도착지 마커 표시
+          webViewRef.current?.postMessage(JSON.stringify({
+            type: "setEndMarker",
+            lat: clickedPoint.lat,
+            lng: clickedPoint.lng,
+            name: "지도에서 선택한 도착지"
+          }));
         }
+        
+        // 출발지와 도착지가 모두 설정되었으면 경로 탐색
+        const newStartPoint = isSelectingStart ? clickedPoint : startPoint;
+        const newEndPoint = isSelectingEnd ? clickedPoint : endPoint;
+        
+        if (newStartPoint && newEndPoint) {
+          setShowSearchResults(false);
+          setHasNoSearchResults(false);
+          // bottomSheet 크기를 로딩 크기로 조정한 후 경로 탐색 시작
+          Animated.spring(bottomSheetHeight, {
+            toValue: BOTTOM_SHEET_HEIGHTS.LOADING, // 150 (유일하게 150)
+            useNativeDriver: false,
+          }).start(() => {
+            drawAllRoutes(newStartPoint, newEndPoint);
+          });
+        }
+        return;
       }
     } catch (err) {
-      console.error("메시지 처리 오류:", err);
+      // 메시지 처리 오류 무시
     }
   };
 
   const resetRoute = () => {
     setStartPoint(null);
     setEndPoint(null);
+    setStartPointName("");
+    setEndPointName("");
     setHasRoute(false);
     setIsRouteFixed(false);
     setRouteInfo(null);
@@ -588,9 +720,25 @@ const Explore: React.FC = () => {
     setCurrentRouteIndex(0);
     setIsMinimized(true);
     setIsLoading(false);
+    setShowSearchResults(false);
+    setHasNoSearchResults(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchError("");
+    setRouteError("");
+    setIsSelectingStart(false);
+    setIsSelectingEnd(false);
+    setShowTopBars(true);
+    setSelectedProvider(null);
+    setRouteStartTime(null);
+    setIsRideInProgress(false);
+    setHasArrived(false);
+    
+    // 지도에서 모든 마커와 경로 제거
     webViewRef.current?.postMessage(JSON.stringify({ type: "clearRoute" }));
+    
     Animated.spring(bottomSheetHeight, {
-      toValue: 80,
+      toValue: BOTTOM_SHEET_HEIGHTS.INITIAL, // 80
       useNativeDriver: false,
     }).start();
   };
@@ -598,8 +746,21 @@ const Explore: React.FC = () => {
   const toggleMinimize = () => {
     const newMinimizedState = !isMinimized;
     setIsMinimized(newMinimizedState);
+    
+    let targetHeight;
+    if (showSearchResults) {
+      // 검색 결과 상태
+      targetHeight = newMinimizedState ? BOTTOM_SHEET_HEIGHTS.SEARCH_MIN : BOTTOM_SHEET_HEIGHTS.SEARCH_MAX; // 80 또는 430
+    } else if (hasRoute) {
+      // 경로 결과 상태
+      targetHeight = newMinimizedState ? BOTTOM_SHEET_HEIGHTS.ROUTE_MIN : BOTTOM_SHEET_HEIGHTS.ROUTE_MAX; // 80 또는 430
+    } else {
+      // 초기 상태
+      targetHeight = BOTTOM_SHEET_HEIGHTS.INITIAL; // 80
+    }
+    
     Animated.spring(bottomSheetHeight, {
-      toValue: newMinimizedState ? 80 : 430,
+      toValue: targetHeight,
       useNativeDriver: false,
     }).start();
   };
@@ -610,8 +771,170 @@ const Explore: React.FC = () => {
     return `${mins}분 ${secs}초`;
   };
 
+  // 현재 페이지의 검색 결과 가져오기
+  const getCurrentPageResults = () => {
+    const startIndex = currentSearchPage * 4;
+    return searchResults.slice(startIndex, startIndex + 4);
+  };
+
+  // 업체 선택 함수 (기존 함수들 아래에 추가)
+  const selectProvider = (providerName: string) => {
+    setSelectedProvider(providerName);
+    setIsRideInProgress(true);
+  };
+
+  // 목적지 도착 처리 함수
+  const handleArrival = async () => {
+    if (!selectedProvider || !routeStartTime || !routeInfo) {
+      Alert.alert("오류", "필요한 정보가 누락되었습니다.");
+      return;
+    }
+    setHasArrived(true);
+    const endTime = new Date();
+    const actualDurationMinutes = (endTime.getTime() - routeStartTime.getTime()) / (1000 * 60);
+    const expectedDurationMinutes = routeInfo.adjustedTimeMin;
+    const timeDifferenceMinutes = Math.abs(actualDurationMinutes - expectedDurationMinutes);
+
+    // 점수 계산
+    let scoreChange = 0;
+    let message = "";
+    
+    if (timeDifferenceMinutes <= 3) {
+      scoreChange = 1;
+      message = "훌륭합니다! 예상 시간에 정확히 도착했어요!";
+    } else if (timeDifferenceMinutes <= 7) {
+      scoreChange = 0;
+      message = "괜찮네요! 조금 더 정확하게 도착해보세요!";
+    } else {
+      scoreChange = -1;
+      message = "다음엔 더 정확한 시간에 도착해보세요!";
+    }
+
+    // 절약 금액 계산
+    const maxFare = Math.max(...fareList.map(f => f.fare));
+    const selectedFare = fareList.find(f => f.name === selectedProvider)?.fare || 0;
+    const savedMoney = maxFare - selectedFare;
+
+    try {
+      const accessToken = await SecureStore.getItemAsync("accessToken");
+      if (!accessToken) {
+        Alert.alert("오류", "로그인이 필요합니다.");
+        return;
+      }
+
+      // API 호출들
+      await apiPost("/api/v1/auth/rides/", {
+        distance_km: routeInfo.distance / 1000,
+        duration_seconds: actualDurationMinutes * 60,
+        started_at: routeStartTime.toISOString(),
+        ended_at: endTime.toISOString(),
+        provider: selectedProvider,
+        saved_money: savedMoney
+      }, accessToken);
+
+      await apiPost("/api/v1/auth/me/update-data/", {
+        saved_money: savedMoney,
+        distance_km: routeInfo.distance / 1000,
+        score_delta: scoreChange
+      }, accessToken);
+
+      Alert.alert("도착 완료", message, [
+        { text: "확인", onPress: () => resetRoute() }
+      ]);
+    } catch (error) {
+      Alert.alert("오류", "데이터 저장 중 오류가 발생했습니다.");
+    }
+  };
+  const getDynamicSavings = () => {
+    if (!selectedProvider || fareList.length === 0) {
+      const maxFare = Math.max(...fareList.map(f => f.fare));
+      const minFare = Math.min(...fareList.map(f => f.fare));
+      return maxFare - minFare;
+    }
+    
+    const maxFare = Math.max(...fareList.map(f => f.fare));
+    const selectedFare = fareList.find(f => f.name === selectedProvider)?.fare || 0;
+    return maxFare - selectedFare;
+  };
+
   return (
     <View style={styles.container}>
+      {/* 상단 검색바 */}
+      {showTopBars && (
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="장소나 주소를 검색하세요"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={() => searchPlaces(searchQuery)}
+              returnKeyType="search"
+            />
+            <TouchableOpacity 
+              style={styles.searchButton}
+              onPress={() => searchPlaces(searchQuery)}
+              disabled={isSearching}
+            >
+              <Text style={styles.searchButtonText}>
+                {isSearching ? "..." : "검색"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* 출발지/도착지 설정 영역 */}
+      {showTopBars && (
+        <View style={styles.pointSelectionContainer}>
+          <View style={styles.pointSelectionBar}>
+            <View style={styles.pointRow}>
+              <Text style={styles.pointLabel}>출발지</Text>
+              <Text style={styles.pointText}>
+                {startPoint ? startPointName || "위치 설정됨" : "설정되지 않음"}
+              </Text>
+              <TouchableOpacity 
+                style={[
+                  styles.mapSelectButton1, 
+                  isSelectingStart && styles.mapSelectButtonActive
+                ]}
+                onPress={() => startMapSelection('start')}
+              >
+                <Text style={[
+                  styles.mapSelectButtonText,
+                  isSelectingStart && styles.mapSelectButtonTextActive
+                ]}>
+                  {isSelectingStart ? "선택 취소" : "지도선택"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.pointDivider} />
+            
+            <View style={styles.pointRow}>
+              <Text style={styles.pointLabel}>도착지</Text>
+              <Text style={styles.pointText}>
+                {endPoint ? endPointName || "위치 설정됨" : "설정되지 않음"}
+              </Text>
+              <TouchableOpacity 
+                style={[
+                  styles.mapSelectButton2, 
+                  isSelectingEnd && styles.mapSelectButtonActive
+                ]}
+                onPress={() => startMapSelection('end')}
+              >
+                <Text style={[
+                  styles.mapSelectButtonText,
+                  isSelectingEnd && styles.mapSelectButtonTextActive
+                ]}>
+                  {isSelectingEnd ? "선택 취소" : "지도선택"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
       <WebView
         ref={webViewRef}
         originWhitelist={["*"]}
@@ -626,241 +949,406 @@ const Explore: React.FC = () => {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        <Animated.View 
-          style={[
-            styles.bottomSheetContent,
-            {
-              transform: [{ translateX: contentTranslateX }]
-            }
-          ]}
-        >
-          {isLoading ? (
-            <View style={styles.loadingState}>
-              <View style={styles.loadingAnimation}>
-                <View style={styles.loadingSpinnerContainer}>
-                  <View style={styles.loadingSpinnerBase} />
-                  <Animated.View 
-                    style={[
-                      styles.loadingSpinnerActive,
-                      {
-                        transform: [{
-                          rotate: spinValue.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ['0deg', '360deg']
-                          })
-                        }]
-                      }
-                    ]} 
-                  >
-                    <View style={styles.loadingSpinnerSegment} />
-                  </Animated.View>
-                </View>
-              </View>
-              <Text style={styles.loadingText}>경로를 탐색중입니다...</Text>
-              <Text style={styles.loadingSubText}>잠시만 기다려주세요</Text>
-            </View>
-          ) : !hasRoute ? (
-            <View style={styles.initialState}>
-              <Text style={styles.instructionText}>
-                지도를 터치해서 출발지와 도착지를 설정하세요
-              </Text>
-              {/* <View style={styles.stepContainer}>
-                <Text style={styles.stepText}>첫 번째 터치: 출발지</Text>
-                <Text style={styles.stepText}>두 번째 터치: 도착지</Text>
-              </View> */}
-            </View>
-          ) : (
-            <View style={styles.routeState}>
+        {/* 검색 결과 표시 */}
+        {showSearchResults ? (
+          <Animated.View 
+            style={[
+              styles.bottomSheetContent,
+              {
+                transform: [{ translateX: searchTranslateX }]
+              }
+            ]}
+          >
+            <View style={styles.searchResultsState}>
               <View style={styles.header}>
                 <View style={styles.dragHandle} />
-                <View style={styles.routeInfo}>
-                  <Text style={styles.routeTypeLabel}>
-                    {routeTypes[currentRouteIndex]?.label}
+                <View style={styles.searchResultsInfo}>
+                  <Text style={styles.searchResultsTitle}>
+                    {hasNoSearchResults ? "검색 결과 없음" : "검색 결과"}
                   </Text>
-                  <View style={styles.routeMetrics}>
-                    <Text style={styles.distanceText}>
-                      {routeInfo ? (routeInfo.distance / 1000).toFixed(2) : '0.0'}km
-                    </Text>
-                    <Text style={styles.timeText}>
-                      {routeInfo ? formatTime(routeInfo.adjustedTimeMin) : '0분 0초'}
-                    </Text>
-                  </View>
-                  <View style={styles.routeIndicators}>
-                    {routeTypes.map((_, index) => (
-                      <View 
-                        key={index} 
-                        style={[
-                          styles.routeIndicator, 
-                          index === currentRouteIndex && styles.activeIndicator
-                        ]} 
-                      />
-                    ))}
-                  </View>
+                  <Text style={styles.searchResultsCount}>
+                    {hasNoSearchResults ? "검색된 결과가 없습니다" : `총 ${searchResults.length}개 결과`}
+                  </Text>
+                  {!hasNoSearchResults && (
+                    <View style={styles.searchResultsIndicators}>
+                      {Array.from({ length: Math.ceil(searchResults.length / 4) }).map((_, index) => (
+                        <View 
+                          key={index} 
+                          style={[
+                            styles.routeIndicator, 
+                            index === currentSearchPage && styles.activeIndicator
+                          ]} 
+                        />
+                      ))}
+                    </View>
+                  )}
                 </View>
                 <TouchableOpacity style={styles.resetButton} onPress={resetRoute}>
                   <Text style={styles.resetButtonText}>초기화</Text>
                 </TouchableOpacity>
               </View>
 
-              {!isMinimized && routeInfo && fareList.length > 0 && (
-                <>
-                  <View style={styles.detailsContainer}>
-                    <Text style={styles.detailsTitle}>경로 상세</Text>
-                    <View style={styles.detailsRow}>
-                      <View style={styles.detailItem}>
-                        <Text style={styles.detailLabel}>경사도 {routeInfo.avgSlope}%</Text>
-                        <View style={styles.graphContainer}>
-                          <View 
-                            style={[styles.graphBar, { 
-                              width: `${Math.min((routeInfo.avgSlope / 10) * 100, 100)}%`,
-                              backgroundColor: routeInfo.avgSlope > 5 ? '#FF5722' : routeInfo.avgSlope > 3 ? '#FF9800' : '#4CAF50'
-                            }]} 
-                          />
-                        </View>
+              {!isMinimized && (
+                <View style={styles.searchResultsContainer}>
+                  {hasNoSearchResults ? (
+                    <View style={styles.noResultsContainer}>
+                      <View style={styles.noResultsIcon}>
+                        <Text style={styles.noResultsIconText}>🔍</Text>
                       </View>
-
-                      <View style={styles.detailItem}>
-                        <Text style={styles.detailLabel}>신호등 {routeInfo.crossingCount}개</Text>
-                        <View style={styles.graphContainer}>
-                          <View 
-                            style={[styles.graphBar, { 
-                              width: `${Math.min((routeInfo.crossingCount / 20) * 100, 100)}%`,
-                              backgroundColor: routeInfo.crossingCount > 10 ? '#FF5722' : routeInfo.crossingCount > 5 ? '#FF9800' : '#4CAF50'
-                            }]} 
-                          />
-                        </View>
-                      </View>
-
-                      <View style={styles.detailItem}>
-                        <Text style={styles.detailLabel}>자전거도로 {routeInfo.bikeLaneRatio}%</Text>
-                        <View style={styles.graphContainer}>
-                          <View 
-                            style={[styles.graphBar, { 
-                              width: `${routeInfo.bikeLaneRatio}%`,
-                              backgroundColor: routeInfo.bikeLaneRatio > 70 ? '#4CAF50' : routeInfo.bikeLaneRatio > 40 ? '#FF9800' : '#FF5722'
-                            }]} 
-                          />
-                        </View>
+                      <Text style={styles.noResultsTitle}>검색 결과가 없습니다</Text>
+                      <Text style={styles.noResultsSubtitle}>
+                        {searchError || "다른 키워드로 다시 검색해보세요"}
+                      </Text>
+                      <View style={styles.noResultsTips}>
+                        <Text style={styles.noResultsTipText}>• 정확한 장소명이나 주소를 입력해보세요</Text>
+                        <Text style={styles.noResultsTipText}>• 지역명을 함께 입력해보세요</Text>
+                        <Text style={styles.noResultsTipText}>• 지도에서 직접 위치를 선택해보세요</Text>
                       </View>
                     </View>
-                  </View>
-
-                  <View style={styles.fareContainer}>
-                    <Text style={styles.fareTitle}>요금 비교</Text>
-                    <View style={styles.fareGrid}>
-                      <View style={styles.fareRow}>
-                        {fareList.slice(0, 2).map((item, index) => {
-                          const minFare = Math.min(...fareList.map(f => f.fare));
-                          const maxFare = Math.max(...fareList.map(f => f.fare));
-                          const range = maxFare - minFare;
-                          const fillPercentage = range === 0 ? 0 : ((item.fare - minFare) / range) * 100;
-                          
-                          let fillColor = '#E6F3FF';
-                          if (item.fare === minFare) {
-                            fillColor = 'transparent';
-                          } else if (item.fare === maxFare) {
-                            fillColor = '#FFD6D6';
-                          }
-
-                          return (
-                            <View key={index} style={[styles.fareGridItem, item.isRecommended && styles.recommendedGridItem]}>
-                              <View style={styles.fareBackground}>
-                                <View 
-                                  style={[
-                                    styles.fareFillBar,
-                                    {
-                                      height: `${fillPercentage}%`,
-                                      backgroundColor: fillColor
-                                    }
-                                  ]}
-                                />
-                              </View>
-                              <View style={styles.fareContent}>
-                                <Image 
-                                  source={getBrandLogo(item.name)} 
-                                  style={styles.brandLogo}
-                                  resizeMode="contain"
-                                />
-                                <Text style={styles.brandName}>{item.name}</Text>
-                                <Text style={styles.brandPrice}>{item.fare.toLocaleString()}원</Text>
-                                <TouchableOpacity 
-                                  style={[styles.gridSelectButton, item.isRecommended && styles.recommendedGridButton]}
-                                  onPress={() => {/* 선택 로직 추가 */}}
-                                >
-                                  <Text style={[styles.gridSelectText, item.isRecommended && styles.recommendedGridText]}>
-                                    선택
-                                  </Text>
-                                </TouchableOpacity>
-                              </View>
-                            </View>
-                          );
-                        })}
-                        <View style={styles.adGridItem}>
-                          <Text style={styles.adTitle}>비용 절감!</Text>
-                          <Text style={styles.adSavings}>
-                            최대{' '}
-                            <Text style={styles.adSavingsAmount}>
-                              {Math.max(...fareList.map(f => f.fare)) - Math.min(...fareList.map(f => f.fare))}원
-                            </Text>
-                          </Text>
-                          <Text style={styles.adSubtext}>차이</Text>
+                  ) : (
+                    <View style={styles.searchResultsGrid}>
+                      {getCurrentPageResults().map((result, index) => (
+                        <View key={index} style={styles.searchResultItem}>
+                          <View style={styles.resultInfo}>
+                            <Text style={styles.resultName}>{result.name}</Text>
+                            <Text style={styles.resultAddress}>{result.address}</Text>
+                          </View>
+                          <View style={styles.resultButtons}>
+                            <TouchableOpacity 
+                              style={[styles.setPointButton, styles.startPointButton]}
+                              onPress={() => setPointFromSearch(result, 'start')}
+                            >
+                              <Text style={styles.setPointButtonText}>출발지</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                              style={[styles.setPointButton, styles.endPointButton]}
+                              onPress={() => setPointFromSearch(result, 'end')}
+                            >
+                              <Text style={styles.setPointButtonText}>도착지</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
-                      </View>
-                      <View style={styles.fareRow}>
-                        {fareList.slice(2, 5).map((item, index) => {
-                          const minFare = Math.min(...fareList.map(f => f.fare));
-                          const maxFare = Math.max(...fareList.map(f => f.fare));
-                          const range = maxFare - minFare;
-                          const fillPercentage = range === 0 ? 0 : ((item.fare - minFare) / range) * 100;
-                          
-                          let fillColor = '#E6F3FF';
-                          if (item.fare === minFare) {
-                            fillColor = 'transparent';
-                          } else if (item.fare === maxFare) {
-                            fillColor = '#FFD6D6';
-                          }
-
-                          return (
-                            <View key={index + 2} style={[styles.fareGridItem, item.isRecommended && styles.recommendedGridItem]}>
-                              <View style={styles.fareBackground}>
-                                <View 
-                                  style={[
-                                    styles.fareFillBar,
-                                    {
-                                      height: `${fillPercentage}%`,
-                                      backgroundColor: fillColor
-                                    }
-                                  ]}
-                                />
-                              </View>
-                              <View style={styles.fareContent}>
-                                <Image 
-                                  source={getBrandLogo(item.name)} 
-                                  style={styles.brandLogo}
-                                  resizeMode="contain"
-                                />
-                                <Text style={styles.brandName}>{item.name}</Text>
-                                <Text style={styles.brandPrice}>{item.fare.toLocaleString()}원</Text>
-                                <TouchableOpacity 
-                                  style={[styles.gridSelectButton, item.isRecommended && styles.recommendedGridButton]}
-                                  onPress={() => {/* 선택 로직 추가 */}}
-                                >
-                                  <Text style={[styles.gridSelectText, item.isRecommended && styles.recommendedGridText]}>
-                                    선택
-                                  </Text>
-                                </TouchableOpacity>
-                              </View>
-                            </View>
-                          );
-                        })}
-                      </View>
+                      ))}
                     </View>
-                  </View>
-                </>
+                  )}
+                </View>
               )}
             </View>
-          )}
-        </Animated.View>
+          </Animated.View>
+        ) : (
+          /* 기존 경로 정보 표시 */
+          <Animated.View 
+            style={[
+              styles.bottomSheetContent,
+              {
+                transform: [{ translateX: contentTranslateX }]
+              }
+            ]}
+          >
+            {isLoading ? (
+              <View style={styles.loadingState}>
+                <View style={styles.loadingAnimation}>
+                  <View style={styles.loadingSpinnerContainer}>
+                    <View style={styles.loadingSpinnerBase} />
+                    <Animated.View 
+                      style={[
+                        styles.loadingSpinnerActive,
+                        {
+                          transform: [{
+                            rotate: spinValue.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ['0deg', '360deg']
+                            })
+                          }]
+                        }
+                      ]} 
+                    >
+                      <View style={styles.loadingSpinnerSegment} />
+                    </Animated.View>
+                  </View>
+                </View>
+                <Text style={styles.loadingText}>경로를 탐색중입니다...</Text>
+                <Text style={styles.loadingSubText}>잠시만 기다려주세요</Text>
+              </View>
+            ) : !hasRoute && !routeError ? (
+              <View style={styles.initialState}>
+                <Text style={styles.instructionText}>
+                  출발지와 도착지를 설정하세요
+                </Text>
+              </View>
+            ) : routeError ? (
+              <View style={styles.errorState}>
+                <View style={styles.header}>
+                  <View style={styles.dragHandle} />
+                  <View style={styles.routeInfo}>
+                    <Text style={styles.routeTypeLabel}>경로 탐색 실패</Text>
+                  </View>
+                  <TouchableOpacity style={styles.resetButton} onPress={resetRoute}>
+                    <Text style={styles.resetButtonText}>초기화</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.errorContainer}>
+                  <View style={styles.errorIcon}>
+                    <Text style={styles.errorIconText}>⚠️</Text>
+                  </View>
+                  <Text style={styles.errorText}>{routeError}</Text>
+                  <Text style={styles.errorSubText}>
+                    출발지와 도착지를 다시 확인해주세요
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.routeState}>
+                <View style={styles.header}>
+                  <View style={styles.dragHandle} />
+                  <View style={styles.routeInfo}>
+                    <Text style={styles.routeTypeLabel}>
+                      {routeTypes[currentRouteIndex]?.label}
+                    </Text>
+                    <View style={styles.routeMetrics}>
+                      <Text style={styles.distanceText}>
+                        {routeInfo ? (routeInfo.distance / 1000).toFixed(2) : '0.0'}km
+                      </Text>
+                      <Text style={styles.timeText}>
+                        {routeInfo ? formatTime(routeInfo.adjustedTimeMin) : '0분 0초'}
+                      </Text>
+                    </View>
+                    <View style={styles.routeIndicators}>
+                      {routeTypes.map((_, index) => (
+                        <View 
+                          key={index} 
+                          style={[
+                            styles.routeIndicator, 
+                            index === currentRouteIndex && styles.activeIndicator
+                          ]} 
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  <TouchableOpacity style={styles.resetButton} onPress={resetRoute}>
+                    <Text style={styles.resetButtonText}>초기화</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {!isMinimized && routeInfo && fareList.length > 0 && (
+                  <>
+                    <View style={styles.detailsContainer}>
+                      <Text style={styles.detailsTitle}>경로 상세</Text>
+                      <View style={styles.detailsRow}>
+                        <View style={styles.detailItem}>
+                          <Text style={styles.detailLabel}>경사도 {routeInfo.avgSlope}%</Text>
+                          <View style={styles.graphContainer}>
+                            <View 
+                              style={[styles.graphBar, { 
+                                width: `${Math.min((routeInfo.avgSlope / 10) * 100, 100)}%`,
+                                backgroundColor: routeInfo.avgSlope > 5 ? '#FF5722' : routeInfo.avgSlope > 3 ? '#FF9800' : '#4CAF50'
+                              }]} 
+                            />
+                          </View>
+                        </View>
+
+                        <View style={styles.detailItem}>
+                          <Text style={styles.detailLabel}>신호등 {routeInfo.crossingCount}개</Text>
+                          <View style={styles.graphContainer}>
+                            <View 
+                              style={[styles.graphBar, { 
+                                width: `${Math.min((routeInfo.crossingCount / 20) * 100, 100)}%`,
+                                backgroundColor: routeInfo.crossingCount > 10 ? '#FF5722' : routeInfo.crossingCount > 5 ? '#FF9800' : '#4CAF50'
+                              }]} 
+                            />
+                          </View>
+                        </View>
+
+                        <View style={styles.detailItem}>
+                          <Text style={styles.detailLabel}>자전거도로 {routeInfo.bikeLaneRatio}%</Text>
+                          <View style={styles.graphContainer}>
+                            <View 
+                              style={[styles.graphBar, { 
+                                width: `${routeInfo.bikeLaneRatio}%`,
+                                backgroundColor: routeInfo.bikeLaneRatio > 70 ? '#4CAF50' : routeInfo.bikeLaneRatio > 40 ? '#FF9800' : '#FF5722'
+                              }]} 
+                            />
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.fareContainer}>
+                      <Text style={styles.fareTitle}>요금 비교</Text>
+                      <View style={styles.fareGrid}>
+                        <View style={styles.fareRow}>
+                          {fareList.slice(0, 2).map((item, index) => {
+                            const minFare = Math.min(...fareList.map(f => f.fare));
+                            const maxFare = Math.max(...fareList.map(f => f.fare));
+                            const range = maxFare - minFare;
+                            const fillPercentage = range === 0 ? 0 : ((item.fare - minFare) / range) * 100;
+                            
+                            let fillColor = '#E6F3FF';
+                            if (item.fare === minFare) {
+                              fillColor = 'transparent';
+                            } else if (item.fare === maxFare) {
+                              fillColor = '#FFD6D6';
+                            }
+                            const isSelected = selectedProvider === item.name;
+                            const isDisabled = selectedProvider && !isSelected;
+
+                            return (
+                              <View key={index} style={[
+                                styles.fareGridItem, 
+                                item.isRecommended && styles.recommendedGridItem,
+                                isSelected && styles.selectedGridItem,
+                                isDisabled && styles.disabledGridItem
+                              ]}>
+                                <View style={styles.fareBackground}>
+                                  <View 
+                                    style={[
+                                      styles.fareFillBar,
+                                      {
+                                        height: `${fillPercentage}%`,
+                                        backgroundColor: fillColor
+                                      }
+                                    ]}
+                                  />
+                                </View>
+                                <View style={styles.fareContent}>
+                                  <Image 
+                                    source={getBrandLogo(item.name)} 
+                                    style={[styles.brandLogo, isDisabled && styles.disabledImage]}
+                                    resizeMode="contain"
+                                  />
+                                  <Text style={[styles.brandName, isDisabled && styles.disabledText]}>
+                                    {item.name}
+                                  </Text>
+                                  <Text style={[styles.brandPrice, isDisabled && styles.disabledText]}>
+                                    {item.fare.toLocaleString()}원
+                                  </Text>
+                                  {isSelected ? (
+                                    <TouchableOpacity 
+                                      style={[styles.arrivalButton, hasArrived && styles.disabledButton]}
+                                      onPress={handleArrival}
+                                      disabled={hasArrived}
+                                    >
+                                      <Text style={[styles.arrivalButtonText, hasArrived && styles.disabledButtonText]}>
+                                        {hasArrived ? "도착 완료" : "목적지 도착"}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  ) : (
+                                    <TouchableOpacity 
+                                      style={[
+                                        styles.gridSelectButton, 
+                                        item.isRecommended && styles.recommendedGridButton,
+                                        isDisabled && styles.disabledButton
+                                      ]}
+                                      onPress={() => !isDisabled && selectProvider(item.name)}
+                                      disabled={isDisabled}
+                                    >
+                                      <Text style={[
+                                        styles.gridSelectText, 
+                                        item.isRecommended && styles.recommendedGridText,
+                                        isDisabled && styles.disabledButtonText
+                                      ]}>
+                                        선택
+                                      </Text>
+                                    </TouchableOpacity>
+                                  )}
+                                </View>
+                              </View>
+                            );
+                          })}
+                          <View style={styles.adGridItem}>
+                            <Text style={styles.adTitle}>비용 절감!</Text>
+                            <Text style={styles.adSavings}>
+                              최대{' '}
+                              <Text style={styles.adSavingsAmount}>
+                                {getDynamicSavings()}원
+                              </Text>
+                            </Text>
+                            <Text style={styles.adSubtext}>절약</Text>
+                          </View>
+                        </View>
+                        <View style={styles.fareRow}>
+                          {fareList.slice(2, 5).map((item, index) => {
+                            const minFare = Math.min(...fareList.map(f => f.fare));
+                            const maxFare = Math.max(...fareList.map(f => f.fare));
+                            const range = maxFare - minFare;
+                            const fillPercentage = range === 0 ? 0 : ((item.fare - minFare) / range) * 100;
+                            
+                            let fillColor = '#E6F3FF';
+                            if (item.fare === minFare) {
+                              fillColor = 'transparent';
+                            } else if (item.fare === maxFare) {
+                              fillColor = '#FFD6D6';
+                            }
+                            const isSelected = selectedProvider === item.name;
+                            const isDisabled = selectedProvider && !isSelected;
+                            return (
+                              <View key={index + 2} style={[
+                                styles.fareGridItem, 
+                                item.isRecommended && styles.recommendedGridItem,
+                                isSelected && styles.selectedGridItem,
+                                isDisabled && styles.disabledGridItem
+                              ]}>
+                                <View style={styles.fareBackground}>
+                                  <View 
+                                    style={[
+                                      styles.fareFillBar,
+                                      {
+                                        height: `${fillPercentage}%`,
+                                        backgroundColor: fillColor
+                                      }
+                                    ]}
+                                  />
+                                </View>
+                                <View style={styles.fareContent}>
+                                  <Image 
+                                    source={getBrandLogo(item.name)} 
+                                    style={[styles.brandLogo, isDisabled && styles.disabledImage]}
+                                    resizeMode="contain"
+                                  />
+                                  <Text style={[styles.brandName, isDisabled && styles.disabledText]}>{item.name}</Text>
+                                  <Text style={[styles.brandPrice, isDisabled && styles.disabledText]}>{item.fare.toLocaleString()}원</Text>
+                                  {isSelected ? (
+                                    <TouchableOpacity 
+                                      style={[styles.arrivalButton, hasArrived && styles.disabledButton]}
+                                      onPress={handleArrival}
+                                      disabled={hasArrived}
+                                    >
+                                      <Text style={[styles.arrivalButtonText, hasArrived && styles.disabledButtonText]}>
+                                        {hasArrived ? "도착 완료" : "목적지 도착"}
+                                      </Text>
+                                    </TouchableOpacity>
+                                  ) : (
+                                    <TouchableOpacity 
+                                      style={[
+                                        styles.gridSelectButton, 
+                                        item.isRecommended && styles.recommendedGridButton,
+                                        isDisabled && styles.disabledButton
+                                      ]}
+                                      onPress={() => !isDisabled && selectProvider(item.name)}
+                                      disabled={isDisabled}
+                                    >
+                                      <Text style={[
+                                        styles.gridSelectText, 
+                                        item.isRecommended && styles.recommendedGridText,
+                                        isDisabled && styles.disabledButtonText
+                                      ]}>
+                                        선택
+                                      </Text>
+                                    </TouchableOpacity>
+                                  )}
+                                </View>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    </View>
+                  </>
+                )}
+              </View>
+            )}
+          </Animated.View>
+        )}
       </Animated.View>
     </View>
   );
@@ -870,6 +1358,116 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  searchContainer: {
+    position: 'absolute',
+    top: Constants.statusBarHeight - 15,
+    left: 20,
+    right: 20,
+    zIndex: 1000,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    height: 44,
+    fontFamily: 'Cafe24',
+    color: '#2c3e50',
+    paddingRight: 12,
+  },
+  searchButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#80a0c7ff',
+    borderRadius: 12,
+  },
+  searchButtonText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  pointSelectionContainer: {
+    position: 'absolute',
+    top: Constants.statusBarHeight + 45,
+    left: 20,
+    right: 20,
+    zIndex: 999,
+  },
+  pointSelectionBar: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 18,
+  },
+  pointRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  pointLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#666',
+    width: 40,
+  },
+  pointContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pointText: {
+    fontSize: 10,
+    color: '#333',
+    flex: 1,
+    marginRight: 6,
+  },
+  pointDivider: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginVertical: 2,
+  },
+  mapSelectButton1: {
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    backgroundColor: '#4CAF50',
+    borderRadius: 5,
+    minWidth: 50,
+  },
+  mapSelectButton2: {
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    backgroundColor: '#FF9800',
+    borderRadius: 5,
+    minWidth: 50,
+  },
+  mapSelectButtonActive: {
+    backgroundColor: '#999',
+  },
+  mapSelectButtonText: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  mapSelectButtonTextActive: {
+    color: '#ffffff',
   },
   webview: {
     flex: 1,
@@ -892,6 +1490,118 @@ const styles = StyleSheet.create({
   bottomSheetContent: {
     flex: 1,
   },
+  searchResultsState: {
+    flex: 1,
+  },
+  searchResultsInfo: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  searchResultsTitle: {
+    fontSize: 15,
+    fontFamily: 'Cafe24',
+    color: '#666',
+    marginBottom: 2,
+  },
+  searchResultsCount: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 4,
+  },
+  searchResultsIndicators: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  searchResultsContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  searchResultsGrid: {
+    gap: 12,
+  },
+  searchResultItem: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  resultInfo: {
+    flex: 1,
+    marginRight: 8,
+  },
+  resultName: {
+    fontSize: 14,
+    fontFamily: 'Cafe24',
+    color: '#2c3e50',
+    marginBottom: 2,
+  },
+  resultAddress: {
+    fontSize: 12,
+    color: '#666',
+  },
+  resultButtons: {
+    flexDirection: 'column',
+    gap: 2,
+  },
+  setPointButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+    minWidth: 40,
+  },
+  startPointButton: {
+    backgroundColor: '#4CAF50',
+  },
+  endPointButton: {
+    backgroundColor: '#FF9800',
+  },
+  setPointButtonText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  // 검색 결과 없음 스타일 추가
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  noResultsIcon: {
+    marginBottom: 16,
+  },
+  noResultsIconText: {
+    fontSize: 48,
+    opacity: 0.5,
+  },
+  noResultsTitle: {
+    fontSize: 18,
+    fontFamily: 'Cafe24',
+    color: '#666',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  noResultsSubtitle: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  noResultsTips: {
+    alignItems: 'flex-start',
+  },
+  noResultsTipText: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+    textAlign: 'left',
+  },
   initialState: {
     flex: 1,
     justifyContent: 'center',
@@ -900,10 +1610,10 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     fontSize: 16,
+    height: 20,
     fontFamily: 'Cafe24',
     color: '#2c3e50',
     textAlign: 'center',
-    // marginBottom: 12,
   },
   stepContainer: {
     flexDirection: 'row',
@@ -1305,6 +2015,72 @@ const styles = StyleSheet.create({
   loadingSubText: {
     fontSize: 12,
     color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  errorState: {
+    flex: 1,
+  },
+  // 에러 아이콘 스타일 추가
+  errorIcon: {
+    marginBottom: 16,
+  },
+  errorIconText: {
+    fontSize: 48,
+    opacity: 0.8,
+  },
+  errorText: {
+    fontSize: 16,
+    fontFamily: 'Cafe24',
+    color: '#FF5722',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  // 에러 서브텍스트 스타일 추가
+  errorSubText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+  },
+  selectedGridItem: {
+    backgroundColor: '#fff3e0',
+    borderColor: '#FF9800',
+    borderWidth: 2,
+  },
+  disabledGridItem: {
+    opacity: 0.5,
+    backgroundColor: '#f5f5f5',
+  },
+  disabledImage: {
+    opacity: 0.5,
+  },
+  disabledText: {
+    color: '#999',
+  },
+  disabledButton: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#ddd',
+  },
+  disabledButtonText: {
+    color: '#ccc',
+  },
+  arrivalButton: {
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    backgroundColor: '#FF9800',
+    borderWidth: 1,
+    borderColor: '#FF9800',
+  },
+  arrivalButtonText: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#ffffff',
+    textAlign: 'center',
   },
 });
 

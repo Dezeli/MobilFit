@@ -19,6 +19,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
 
     "users",
+    "ors",
+    
     "docs",
 ]
 
@@ -58,6 +60,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'utils.exceptions.custom_exception_handler',
     'DEFAULT_AUTHENTICATION_CLASSES': [
@@ -85,7 +91,7 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
 
 AUTH_USER_MODEL = 'users.User'
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = 'ko-kr'
 TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = True
