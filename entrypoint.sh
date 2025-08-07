@@ -7,3 +7,4 @@ exec gunicorn mobilfit_backend.wsgi:application \
     --chdir mobilfit_backend \
     --bind 0.0.0.0:8000 \
     --workers 3 \
+    --timeout 45

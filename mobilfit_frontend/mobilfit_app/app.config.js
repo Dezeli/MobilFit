@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 export default {
   expo: {
     name: 'Mobilfit',
@@ -23,11 +21,31 @@ export default {
     },
     android: {
       versionCode: 1,
+      package: 'kr.mobilfit.app',
       permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
+      config: {
+        usesCleartextTraffic: false,
+      },
+      allowBackup: true,
+      intentFilters: [
+        {
+          action: 'VIEW',
+          data: {
+            scheme: 'https',
+            host: 'mobilfit.kr',
+            pathPrefix: '/',
+          },
+          category: ['BROWSABLE', 'DEFAULT'],
+        },
+      ],
     },
+
+    assetBundlePatterns: ['**/*'],
+
     extra: {
-      orsApiKey: process.env.ORS_API_KEY,
-      googleApiKey: process.env.GOOGLE_API_KEY,
+      eas: {
+        projectId: 'a321c62c-10cd-4c46-b758-d85c143e3944',
+      },
     },
   },
 };

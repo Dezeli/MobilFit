@@ -53,12 +53,12 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setLoginError("");
-    
+
     if (!loginId || !password) {
       setLoginError("아이디와 비밀번호를 입력하세요.");
       return;
     }
-    
+
     setLoading(true);
     try {
       // 로그인
@@ -67,21 +67,25 @@ export default function LoginScreen() {
         password,
       });
 
-      await SecureStore.setItemAsync("accessToken", res.data.result.access);
-      await SecureStore.setItemAsync("refreshToken", res.data.result.refresh);
+      const accessToken = res.data.result.access;
+      const refreshToken = res.data.result.refresh;
+
+      await SecureStore.setItemAsync("accessToken", accessToken);
+      await SecureStore.setItemAsync("refreshToken", refreshToken);
 
       // 유저 정보
-      const userInfo = await apiGet("/api/v1/auth/me/", res.data.result.access);
+      const userInfo = await apiGet("/api/v1/auth/me/", accessToken);
       setUser(userInfo);
 
-      router.replace("/");
+      // 🔁 반드시 (tabs)로 이동!
+      router.replace("/(tabs)");
     } catch (error: any) {
       setLoginError(error.message || "로그인에 실패했습니다.");
     } finally {
       setLoading(false);
     }
   };
-
+  
   const validateId = (id) => {
     return id.trim().length >= 3;
   };

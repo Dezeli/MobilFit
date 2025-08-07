@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getAccessToken, getMe, deleteTokens } from "../api/auth";
+import {
+  getAccessToken,
+  getRefreshToken,
+  saveTokens,
+  deleteTokens,
+  apiGet,
+  apiPost,
+  refreshAccessToken,
+} from "../lib/api";
 
 export type User = {
   id: number;
@@ -28,18 +36,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // 앱 시작 시 자동 로그인 시도
     const initAuth = async () => {
       try {
-        const token = await getAccessToken();
-        if (token) {
-          const me = await getMe(token);
-          setUser(me);
+        const accessToken = await getAccessToken();
+        if (!accessToken) throw new Error("No access token");
+
+        const res = await apiGet("/api/v1/auth/me/", accessToken);
+        setUser(res.data.result);
+      } catch (err) {
+        console.log("자동 로그인 실패:", err);
+
+        try {
+          // accessToken 실패 → refresh 시도
+          const refreshToken = await getRefreshToken();
+          if (!refreshToken) throw new Error("No refresh token");
+
+          const newAccessToken = await refreshAccessToken(refreshToken);
+          await saveTokens(newAccessToken, refreshToken);
+
+          const res = await apiGet("/api/v1/auth/me/", newAccessToken);
+          setUser(res.data.result);
+        } catch (e) {
+          console.log("refresh 실패:", e);
+          await deleteTokens();
+          setUser(null);
         }
-      } catch (error) {
-        console.log("자동 로그인 실패:", error);
-        await deleteTokens();
-        setUser(null);
       } finally {
         setIsLoading(false);
       }

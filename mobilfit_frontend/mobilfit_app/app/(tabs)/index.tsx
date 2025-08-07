@@ -126,7 +126,7 @@ export default function HomeScreen() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (isAuthenticated === false) {
     return <Redirect href="/auth/login" />;
   }
 
@@ -522,7 +522,6 @@ const styles = StyleSheet.create({
   },
   environmentContainer: {
     paddingHorizontal: 20,
-    marginBottom: 25,
   },
   environmentGrid: {
     flexDirection: 'row',
@@ -565,7 +564,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   visualSection: {
-    marginBottom: 16,
+    marginBottom: 4,
   },
   visualLabel: {
     fontSize: 12,
@@ -609,6 +608,6 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '500',
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 8,
   },
 });

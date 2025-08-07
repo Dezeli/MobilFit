@@ -7,6 +7,210 @@ import Constants from "expo-constants";
 
 const { width: screenWidth } = Dimensions.get('window');
 
+const LEAFLET_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>MobilFit 자전거 경로 지도</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@here/harp-flexible-polyline/dist/flexiblepolyline.min.js"></script>
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .leaflet-container {
+      background: #f8f9fa;
+    }
+    .leaflet-control-zoom {
+      display: none !important;
+    }
+    .leaflet-control-attribution {
+      background: rgba(255,255,255,0.8) !important;
+      backdrop-filter: blur(10px) !important;
+      border-radius: 4px !important;
+      margin: 10px !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    const map = L.map('map').setView([37.5665, 126.9780], 13);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap | MobilFit'
+    }).addTo(map);
+
+    let startMarker = null;
+    let endMarker = null;
+    let polylineGroup = L.layerGroup().addTo(map);
+    let crossingGroup = L.layerGroup().addTo(map);
+    let isSearchingRoute = false;
+    let isRouteFixed = false;
+    let chunkedCoords = [];
+    let chunkedWaytypes = [];
+
+    const startIcon = L.icon({
+      iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNSA0MSc+PHBhdGggZmlsbD0nIzRDQUY1MCcgc3Ryb2tlPScjZmZmZmZmJyBzdHJva2Utd2lkdGg9JzInIGQ9J00xMi41LDBDNS41OTYsMCwwLDUuNTk2LDAsMTIuNWMwLDEyLjUsMTIuNSwyOC41LDEyLjUsMjguNXMxMi41LTE2LDEyLjUtMjguNUMyNSw1LjU5NiwxOS40MDQsMCwxMi41LDB6Jy8+PGNpcmNsZSBmaWxsPScjZmZmZmZmJyBjeD0nMTIuNScgY3k9JzEyLjUnIHI9JzYnLz48L3N2Zz4=',
+      iconSize: [20, 33],
+      iconAnchor: [10, 33],
+      popupAnchor: [1, -28],
+    });
+
+    const endIcon = L.icon({
+      iconUrl:
+        'data:image/svg+xml;base64,' +
+        'PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNSA0MSI+PHBhdGggZmlsbD0iI0ZGQTcyNiIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjIiIGQ9Ik0xMi41LDBDNS41OTYsMCwwLDUuNTk2LDAsMTIuNWMwLDEyLjUsMTIuNSwyOC41LDEyLjUsMjguNXMxMi41LTE2LDEyLjUtMjguNUMyNSw1LjU5NiwxOS40MDQsMCwxMi41LDB6Ii8+PGNpcmNsZSBmaWxsPSIjZmZmZmZmIiBjeD0iMTIuNSIgY3k9IjEyLjUiIHI9IjYiLz48L3N2Zz4=',
+      iconSize: [20, 33],
+      iconAnchor: [10, 33],
+      popupAnchor: [1, -28],
+    });
+
+
+    function handleMessage(event) {
+      try {
+        let data = event.data;
+        if (typeof data === "string") data = JSON.parse(data);
+
+        if (data.type === "setStartMarker") {
+          // 출발지 마커 설정
+          if (startMarker) {
+            map.removeLayer(startMarker);
+          }
+          startMarker = L.marker([data.lat, data.lng], { icon: startIcon }).addTo(map);
+          if (data.name) {
+            startMarker.bindPopup(data.name);
+          }
+        } else if (data.type === "setEndMarker") {
+          // 도착지 마커 설정
+          if (endMarker) {
+            map.removeLayer(endMarker);
+          }
+          endMarker = L.marker([data.lat, data.lng], { icon: endIcon }).addTo(map);
+          if (data.name) {
+            endMarker.bindPopup(data.name);
+          }
+        } else if (data.type === "removeStartMarker") {
+          // 출발지 마커 제거
+          if (startMarker) {
+            map.removeLayer(startMarker);
+            startMarker = null;
+          }
+        } else if (data.type === "removeEndMarker") {
+          // 도착지 마커 제거
+          if (endMarker) {
+            map.removeLayer(endMarker);
+            endMarker = null;
+          }
+        } else if (data.type === "getMapCenter") {
+          // 지도 중심점 좌표 반환
+          const center = map.getCenter();
+          window.ReactNativeWebView.postMessage(JSON.stringify({ 
+            type: "mapCenter", 
+            lat: center.lat, 
+            lng: center.lng 
+          }));
+        } else if (data.type === "drawRoute") {
+          chunkedCoords = [];
+          chunkedWaytypes = [];
+          polylineGroup.clearLayers();
+          const coordinates = data.coordinates, waytypes = data.waytypes;
+          for (let i = 0; i < coordinates.length - 1; i++) {
+            const [lng1, lat1] = coordinates[i], [lng2, lat2] = coordinates[i+1];
+            const color = waytypes[i] === 6 ? "#4CAF50" : "#2196F3";
+            const weight = waytypes[i] === 6 ? 6 : 4;
+            polylineGroup.addLayer(L.polyline([[lat1, lng1], [lat2, lng2]], { color, weight, opacity: 0.8 }));
+          }
+          map.fitBounds(L.latLngBounds(coordinates.map(([lng, lat]) => [lat, lng])));
+          isRouteFixed = true;
+        } else if (data.type === "drawRouteChunk") {
+          chunkedCoords.push(...(data.coordinates || []).map(([lng, lat]) => [lat, lng]));
+          chunkedWaytypes.push(...(data.waytypes || []));
+        } else if (data.type === "drawRouteComplete") {
+          polylineGroup.clearLayers();
+          for (let i = 0; i < chunkedCoords.length - 1; i++) {
+            const [lat1, lng1] = chunkedCoords[i], [lat2, lng2] = chunkedCoords[i+1];
+            const color = chunkedWaytypes[i] === 6 ? "#4CAF50" : "#2196F3";
+            const weight = chunkedWaytypes[i] === 6 ? 6 : 4;
+            polylineGroup.addLayer(L.polyline([[lat1, lng1], [lat2, lng2]], { color, weight, opacity: 0.8 }));
+          }
+          if (chunkedCoords.length) map.fitBounds(L.latLngBounds(chunkedCoords));
+          isRouteFixed = true;
+          chunkedCoords = [];
+          chunkedWaytypes = [];
+        } else if (data.type === "drawCrossings") {
+          crossingGroup.clearLayers();
+          data.crossings.forEach(({ lat, lng }) => {
+            const icon = L.divIcon({
+              className: 'traffic-light-marker',
+              html: [
+                '<div style="background:linear-gradient(135deg,#2c3e50 0%,#34495e 100%);',
+                'color:white;width:12px;height:20px;border-radius:2px;',
+                'display:flex;flex-direction:column;align-items:center;justify-content:space-around;',
+                'border:1px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.3);padding:1px;">',
+                '<div style="width:5px;height:5px;background:#e74c3c;border-radius:50%;"></div>',
+                '<div style="width:5px;height:5px;background:#f39c12;border-radius:50%;"></div>',
+                '<div style="width:5px;height:5px;background:#27ae60;border-radius:50%;"></div>',
+                '</div>'
+              ].join(""),
+              iconSize: [14, 22],
+              iconAnchor: [7, 22]
+            });
+            L.marker([lat, lng], { icon }).addTo(crossingGroup);
+          });
+        } else if (data.type === "clearRoute") {
+          polylineGroup.clearLayers();
+          crossingGroup.clearLayers();
+          if (startMarker) { map.removeLayer(startMarker); startMarker = null; }
+          if (endMarker) { map.removeLayer(endMarker); endMarker = null; }
+          isRouteFixed = false;
+          isSearchingRoute = false;
+          chunkedCoords = [];
+          chunkedWaytypes = [];
+        } else if (data.type === "setSearching") {
+          isSearchingRoute = data.value;
+        }
+      } catch (e) {
+        // 메시지 처리 오류 무시
+      }
+    }
+
+    // Android용 메시지 수신
+    document.addEventListener("message", handleMessage);
+    // iOS용 메시지 수신
+    window.addEventListener("message", handleMessage);
+
+    // 지도 클릭 시 좌표만 전달 (마커 표시는 하지 않음)
+    map.on("click", function(e) {
+      const lat = e.latlng.lat, lng = e.latlng.lng;
+      window.ReactNativeWebView.postMessage(JSON.stringify({ 
+        type: "mapClick", 
+        lat, 
+        lng 
+      }));
+    });
+
+    // 지도 이동 시 중심점 좌표 업데이트
+    map.on("moveend", function() {
+      const center = map.getCenter();
+      window.ReactNativeWebView.postMessage(JSON.stringify({ 
+        type: "mapCenter", 
+        lat: center.lat, 
+        lng: center.lng 
+      }));
+    });
+  </script>
+</body>
+</html>
+`;
+
+
 const getBrandLogo = (brandName: string) => {
   switch(brandName) {
     case "카카오":
@@ -177,7 +381,11 @@ const Explore: React.FC = () => {
           
           const apiUrl = `/api/v1/ors/search/?query=${encodeURIComponent(query)}&x=${mapCenter.lng}&y=${mapCenter.lat}`;
           
+          console.log("📍 mapCenter:", mapCenter);
+          console.log("🔎 query:", query);
+          console.log("🌍 호출 URL:", apiUrl);
           const response = await apiGet(apiUrl, accessToken);
+          console.log("🌍 response:", response);
           
           if (response.success && response.data && response.data.results) {
             const results = response.data.results.slice(0, 8); // 최대 8개
@@ -580,7 +788,13 @@ const Explore: React.FC = () => {
       }).start();
       setIsMinimized(true);
     } catch (error) {
-      setRouteError(error instanceof Error ? error.message : "경로 탐색 중 오류가 발생했습니다");
+      const message =
+        error instanceof Error
+          ? error.message.includes("<")
+            ? "서버 요청시간이 초과했습니다."
+            : error.message
+          : "경로 탐색 중 오류가 발생했습니다";
+      setRouteError(message);
       setHasRoute(false);
       setIsRouteFixed(false);
       setRouteInfo(null);
@@ -938,7 +1152,7 @@ const Explore: React.FC = () => {
       <WebView
         ref={webViewRef}
         originWhitelist={["*"]}
-        source={require("../../assets/leaflet/leaflet.html")}
+        source={{ html: LEAFLET_HTML }}
         onMessage={handleMessage}
         style={styles.webview}
       />
@@ -1093,7 +1307,7 @@ const Explore: React.FC = () => {
                   </View>
                   <Text style={styles.errorText}>{routeError}</Text>
                   <Text style={styles.errorSubText}>
-                    출발지와 도착지를 다시 확인해주세요
+                    문제가 반복되다면 더 짧은 경로로 검색해보세요.
                   </Text>
                 </View>
               </View>

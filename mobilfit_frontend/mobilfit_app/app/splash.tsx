@@ -13,7 +13,7 @@ export default function SplashScreen() {
       
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />
-        <Text style={styles.loadingText}>앱 로딩 중...</Text>
+        <Text style={styles.loadingText}>MobilFit 로딩 중...</Text>
       </View>
     </View>
   );
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 16,
     color: '#2C3E50',
-    fontWeight: '500',
+    fontFamily: 'Cafe24',
   },
   tagline: {
     fontSize: 18,

@@ -39,9 +39,9 @@ export default function TabLayout() {
           backgroundColor: '#FFFFFF',
           borderTopWidth: 1,
           borderTopColor: '#F0F0F0',
-          height: 65 + insets.bottom,
-          paddingBottom: Math.max(insets.bottom, 10),
-          paddingTop: 8,
+          height: 80 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom + 15, 25),
+          paddingTop: 4,
           elevation: 8,
           shadowColor: '#000',
           shadowOffset: {
@@ -54,12 +54,14 @@ export default function TabLayout() {
         tabBarActiveTintColor: '#52C41A',
         tabBarInactiveTintColor: '#8E9AAF',
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontFamily: 'Cafe24',
+          fontWeight: '600',
           marginTop: 4,
+          textAlign: 'center',
         },
         tabBarIconStyle: {
-          marginTop: 4,
+          marginTop: 2,
         },
       }}
     >
@@ -68,13 +70,11 @@ export default function TabLayout() {
         options={{
           title: "홈",
           tabBarIcon: ({ color, size, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-              <Ionicons 
-                name={focused ? "home" : "home-outline"} 
-                size={focused ? 26 : 24} 
-                color={color} 
-              />
-            </View>
+            <Ionicons 
+              name={focused ? "home" : "home-outline"} 
+              size={focused ? 28 : 26} 
+              color={color} 
+            />
           ),
         }}
       />
@@ -83,13 +83,11 @@ export default function TabLayout() {
         options={{
           title: "경로 탐색",
           tabBarIcon: ({ color, size, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-              <Ionicons 
-                name={focused ? "map" : "map-outline"} 
-                size={focused ? 26 : 24} 
-                color={color} 
-              />
-            </View>
+            <Ionicons 
+              name={focused ? "navigate" : "navigate-outline"} 
+              size={focused ? 28 : 26} 
+              color={color} 
+            />
           ),
         }}
       />
@@ -98,13 +96,11 @@ export default function TabLayout() {
         options={{
           title: "랭킹",
           tabBarIcon: ({ color, size, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-              <Ionicons 
-                name={focused ? "person" : "person-outline"} 
-                size={focused ? 26 : 24} 
-                color={color} 
-              />
-            </View>
+            <Ionicons 
+              name={focused ? "trophy" : "trophy-outline"} 
+              size={focused ? 28 : 26} 
+              color={color} 
+            />
           ),
         }}
       />
@@ -113,13 +109,11 @@ export default function TabLayout() {
         options={{
           title: "마이페이지",
           tabBarIcon: ({ color, size, focused }) => (
-            <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-              <Ionicons 
-                name={focused ? "settings" : "settings-outline"} 
-                size={focused ? 26 : 24} 
-                color={color} 
-              />
-            </View>
+            <Ionicons 
+              name={focused ? "person-circle" : "person-circle-outline"} 
+              size={focused ? 28 : 26} 
+              color={color} 
+            />
           ),
         }}
       />
@@ -135,25 +129,5 @@ const styles = StyleSheet.create({
   headerLogo: {
     width: width * 0.35,
     height: 40,
-  },
-  iconContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  iconContainerActive: {
-    backgroundColor: '#F6FFED',
-    borderWidth: 1,
-    borderColor: '#D9F7BE',
-    shadowColor: '#52C41A',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
 });

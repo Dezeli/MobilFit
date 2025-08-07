@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, ActivityIndicator, RefreshControl, TextInput, Modal } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, ActivityIndicator, RefreshControl } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { Redirect, useRouter } from "expo-router";
 import { apiGet, apiPost, API_BASE_URL } from "../../lib/api";
@@ -15,9 +15,6 @@ export default function MyPageScreen() {
   const [myPageData, setMyPageData] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [feedbackModal, setFeedbackModal] = useState(false);
-  const [feedbackText, setFeedbackText] = useState("");
-  const [sendingFeedback, setSendingFeedback] = useState(false);
   const router = useRouter();
 
   const fetchUserData = async () => {
@@ -67,7 +64,7 @@ export default function MyPageScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       "회원 탈퇴",
-      "정말로 회원 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
+      "정말로 회원 탈퇴하시겠습니까?\n이 작업은 되돌릴 수 없습니다.",
       [
         { text: "취소", style: "cancel" },
         {
@@ -93,7 +90,7 @@ export default function MyPageScreen() {
                 throw new Error("회원 탈퇴 요청이 실패했습니다.");
               }
             } catch (error: any) {
-              Alert.alert("오류", error.message || "회원 탈퇴에 실패했습니다.");
+              Alert.alert("오류", error.message || "회원 탈퇴에 실패했습니다.\nmobilfit5684@gmail.com으로 문의부탁드립니다.");
             }
           },
         },
@@ -127,27 +124,6 @@ export default function MyPageScreen() {
         },
       ]
     );
-  };
-
-  const handleSendFeedback = async () => {
-    if (!feedbackText.trim()) {
-      Alert.alert("알림", "피드백 내용을 입력해주세요.");
-      return;
-    }
-
-    setSendingFeedback(true);
-    try {
-      const accessToken = await SecureStore.getItemAsync("accessToken");
-      await apiPost("/api/v1/auth/feedback/", { message: feedbackText }, accessToken);
-      
-      Alert.alert("완료", "피드백이 성공적으로 전송되었습니다.");
-      setFeedbackText("");
-      setFeedbackModal(false);
-    } catch (error: any) {
-      Alert.alert("오류", error.message || "피드백 전송에 실패했습니다.");
-    } finally {
-      setSendingFeedback(false);
-    }
   };
 
   const getJoinedText = () => {
@@ -202,20 +178,24 @@ export default function MyPageScreen() {
         </View>
       </LinearGradient>
 
-      {/* Last Used Info */}
+      {/* 앱 사용 정보 */}
       <View style={styles.infoContainer}>
-        <Text style={styles.sectionTitle}>앱 사용 정보</Text>
+        <View style={styles.sectionTitleContainer}>
+          <View style={[styles.sectionIconContainer, { backgroundColor: '#F6FFED' }]}>
+            <Ionicons name="analytics-outline" size={24} color="#52C41A" />
+          </View>
+          <Text style={styles.sectionTitle}>앱 사용 정보</Text>
+        </View>
         <View style={styles.infoCard}>
-          <Ionicons name="time" size={20} color="#52C41A" />
-          <Text style={styles.infoLabel}>마지막 사용</Text>
+          <View style={[styles.menuIcon, { backgroundColor: '#F6FFED' }]}>
+            <Ionicons name="time-outline" size={20} color="#52C41A" />
+          </View>
+          <View style={styles.menuContent}>
+            <Text style={styles.menuTitle}>마지막 사용</Text>
+            <Text style={styles.menuDesc}>경로를 탐색한 최신 기록입니다</Text>
+          </View>
           <Text style={styles.infoValue}>{myPageData?.last_used_at || "기록 없음"}</Text>
         </View>
-      </View>
-
-      {/* Menu Section */}
-      <View style={styles.menuContainer}>
-        <Text style={styles.sectionTitle}>계정 관리</Text>
-        
         <TouchableOpacity
           onPress={() => router.push("settings/ride-logs")}
           style={styles.menuItem}
@@ -226,30 +206,39 @@ export default function MyPageScreen() {
             </View>
             <View style={styles.menuContent}>
               <Text style={styles.menuTitle}>주행 기록</Text>
-              <Text style={styles.menuDesc}>나의 라이딩 히스토리 확인</Text>
+              <Text style={styles.menuDesc}>나의 라이딩 히스토리를 확인합니다</Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#8E9AAF" />
         </TouchableOpacity>
+      </View>
 
+      {/* 고객 지원 */}
+      <View style={styles.menuContainer}>
+        <View style={styles.sectionTitleContainer}>
+          <View style={[styles.sectionIconContainer, { backgroundColor: '#E6F7FF' }]}>
+            <Ionicons name="help-circle-outline" size={24} color="#1890FF" />
+          </View>
+          <Text style={styles.sectionTitle}>고객 지원</Text>
+        </View>
         <TouchableOpacity
-          onPress={handleChangePassword}
+          onPress={handlePrivacyPolicy}
           style={styles.menuItem}
         >
           <View style={styles.menuLeft}>
-            <View style={[styles.menuIcon, { backgroundColor: '#FFF7E6' }]}>
-              <Ionicons name="key-outline" size={20} color="#FA8C16" />
+            <View style={[styles.menuIcon, { backgroundColor: '#E6F7FF' }]}>
+              <Ionicons name="shield-checkmark-outline" size={20} color="#1890FF" />
             </View>
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>비밀번호 변경</Text>
-              <Text style={styles.menuDesc}>보안을 위해 주기적으로 변경하세요</Text>
+              <Text style={styles.menuTitle}>이용약관 & 개인정보처리방침</Text>
+              <Text style={styles.menuDesc}>약관과 방침을 확인하세요</Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#8E9AAF" />
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => setFeedbackModal(true)}
+          onPress={() => router.push("/settings/feedback")}
           style={styles.menuItem}
         >
           <View style={styles.menuLeft}>
@@ -263,18 +252,27 @@ export default function MyPageScreen() {
           </View>
           <Ionicons name="chevron-forward" size={20} color="#8E9AAF" />
         </TouchableOpacity>
+      </View>
 
+      {/* 계정 관리 */}
+      <View style={styles.menuContainer}>
+        <View style={styles.sectionTitleContainer}>
+          <View style={[styles.sectionIconContainer, { backgroundColor: '#FFF7E6' }]}>
+            <Ionicons name="settings-outline" size={24} color="#FA8C16" />
+          </View>
+          <Text style={styles.sectionTitle}>계정 관리</Text>
+        </View>
         <TouchableOpacity
-          onPress={handlePrivacyPolicy}
+          onPress={handleChangePassword}
           style={styles.menuItem}
         >
           <View style={styles.menuLeft}>
-            <View style={[styles.menuIcon, { backgroundColor: '#F6FFED' }]}>
-              <Ionicons name="shield-checkmark-outline" size={20} color="#52C41A" />
+            <View style={[styles.menuIcon, { backgroundColor: '#FFF7E6' }]}>
+              <Ionicons name="key-outline" size={20} color="#FA8C16" />
             </View>
             <View style={styles.menuContent}>
-              <Text style={styles.menuTitle}>개인정보처리방침 보기</Text>
-              <Text style={styles.menuDesc}>개인정보 보호 정책 확인</Text>
+              <Text style={styles.menuTitle}>비밀번호 변경</Text>
+              <Text style={styles.menuDesc}>보안을 위해 주기적으로 변경하세요</Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#8E9AAF" />
@@ -314,78 +312,6 @@ export default function MyPageScreen() {
           </LinearGradient>
         </TouchableOpacity>
       </View>
-
-      {/* App Info */}
-      <View style={styles.footerContainer}>
-        <Text style={styles.footerText}>MobilFit v1.0.0</Text>
-        <Text style={styles.footerSubText}>친환경 자전거 네비게이션</Text>
-      </View>
-
-      {/* Feedback Modal */}
-      <Modal
-        visible={feedbackModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setFeedbackModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>피드백 보내기</Text>
-              <TouchableOpacity 
-                onPress={() => setFeedbackModal(false)}
-                style={styles.modalCloseButton}
-              >
-                <Ionicons name="close" size={24} color="#8E9AAF" />
-              </TouchableOpacity>
-            </View>
-            
-            <TextInput
-              style={styles.feedbackInput}
-              placeholder="개선 의견이나 버그 리포트를 작성해주세요..."
-              placeholderTextColor="#8E9AAF"
-              value={feedbackText}
-              onChangeText={setFeedbackText}
-              multiline={true}
-              numberOfLines={6}
-              textAlignVertical="top"
-            />
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                onPress={() => setFeedbackModal(false)}
-                style={styles.modalCancelButton}
-              >
-                <Text style={styles.modalCancelText}>취소</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                onPress={handleSendFeedback}
-                disabled={sendingFeedback || !feedbackText.trim()}
-                style={[
-                  styles.modalSendButton,
-                  (!feedbackText.trim() || sendingFeedback) && styles.modalSendButtonDisabled
-                ]}
-              >
-                <LinearGradient
-                  colors={
-                    !feedbackText.trim() || sendingFeedback 
-                      ? ['#E0E0E0', '#BDBDBD'] 
-                      : ['#52C41A', '#73D13D']
-                  }
-                  style={styles.modalSendGradient}
-                >
-                  {sendingFeedback ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.modalSendText}>전송</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
@@ -404,7 +330,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#2C3E50',
-    fontWeight: '600',
+    fontFamily: 'Cafe24',
     marginTop: 12,
   },
   header: {
@@ -423,9 +349,10 @@ const styles = StyleSheet.create({
   },
   headerName: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: 'Cafe24',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 8,
   },
   headerEmail: {
     fontSize: 14,
@@ -448,6 +375,7 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -455,13 +383,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: '#F0F0F0',
-  },
-  infoLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2C3E50',
-    marginLeft: 12,
-    flex: 1,
+    marginBottom: 8,
   },
   infoValue: {
     fontSize: 13,
@@ -472,11 +394,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginBottom: 20,
   },
+  sectionTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  sectionIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontFamily: 'Cafe24',
     color: '#2C3E50',
-    marginBottom: 16,
+    paddingBottom: 6,
   },
   menuItem: {
     backgroundColor: '#FFFFFF',
@@ -562,85 +499,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#ADB5BD',
     fontWeight: '500',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  modalContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2C3E50',
-  },
-  modalCloseButton: {
-    padding: 4,
-  },
-  feedbackInput: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    padding: 16,
-    fontSize: 14,
-    color: '#2C3E50',
-    fontWeight: '500',
-    height: 120,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalCancelButton: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCancelText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#8E9AAF',
-  },
-  modalSendButton: {
-    flex: 1,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  modalSendButtonDisabled: {
-    opacity: 0.6,
-  },
-  modalSendGradient: {
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalSendText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
   },
 });

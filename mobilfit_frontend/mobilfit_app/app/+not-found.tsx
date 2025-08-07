@@ -7,7 +7,7 @@ export default function NotFoundScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>페이지를 찾을 수 없습니다 🧐</Text>
-      <Text style={styles.subtitle}>올바르지 않은 경로에 접근하셨어요.</Text>
+      <Text style={styles.subtitle}>올바르지 않은 경로로 접근하셨습니다.</Text>
 
       <TouchableOpacity style={styles.button} onPress={() => router.replace('/')}>
         <Text style={styles.buttonText}>홈으로 돌아가기</Text>
@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
   },
   title: { 
     fontSize: 20, 
-    fontWeight: 'bold', 
+    fontFamily: 'Cafe24',
     marginBottom: 10 
   },
   subtitle: { 

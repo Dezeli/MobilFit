@@ -14,6 +14,7 @@ from django.core.mail import send_mail
 from decouple import config
 from django.utils.timezone import now, make_aware
 from datetime import timedelta, datetime
+from django.utils.timezone import localtime
 from django.utils.dateparse import parse_datetime
 from django.db.models import Sum, Max, Count, F, Window
 from django.db.models.functions import Rank
@@ -213,7 +214,7 @@ class MyPageView(APIView):
         # 가장 최근 라이딩 종료 시각
         latest_ride = RideLog.objects.filter(user=user).order_by('-ended_at').first()
         if latest_ride:
-            delta = now() - latest_ride.ended_at
+            delta = localtime() - latest_ride.ended_at
             if delta < timedelta(hours=24):
                 hours = int(delta.total_seconds() // 3600)
                 last_used_display = f"{hours}시간 전"
@@ -336,7 +337,7 @@ class MyRankView(APIView):
     def get(self, request):
         user = request.user
         period = request.query_params.get("period", "month")
-        today = now()
+        today = localtime()
 
         if period == "today":
             logs = RideLog.objects.filter(started_at__date=today.date())
@@ -395,11 +396,26 @@ class MyRankView(APIView):
         return Response(success_response({
             "period": period,
             "ranks": {
-                "distance": my["distance_rank"],
-                "max_distance": my["max_distance_rank"],
-                "count": my["count_rank"],
-                "total_time": my["total_time_rank"],
-                "max_time": my["max_time_rank"]
+                "distance": {
+                    "rank": my["distance_rank"],
+                    "value": my["total_distance"]
+                },
+                "max_distance": {
+                    "rank": my["max_distance_rank"],
+                    "value": my["max_distance"]
+                },
+                "count": {
+                    "rank": my["count_rank"],
+                    "value": my["count_logs"]
+                },
+                "total_time": {
+                    "rank": my["total_time_rank"],
+                    "value": my["total_time"]
+                },
+                "max_time": {
+                    "rank": my["max_time_rank"],
+                    "value": my["max_time"]
+                }
             },
             "average_rank": round(avg_rank, 2),
             "grade": grade
@@ -411,7 +427,7 @@ class RankingView(APIView):
 
     def get(self, request):
         period = request.query_params.get("period", "month")
-        today = now()
+        today = localtime()
 
         if period == "today":
             logs = RideLog.objects.filter(started_at__date=today.date())
@@ -466,7 +482,7 @@ class GradeView(APIView):
 
     def get(self, request):
         user = request.user
-        today = now()
+        today = localtime()
         logs = RideLog.objects.filter(
             started_at__date__gte=today.replace(day=1).date(),
             started_at__date__lte=today.date()
