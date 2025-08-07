@@ -149,24 +149,6 @@ export default function RankingScreen() {
     return `${value}${unit}`;
   };
 
-  const getMyValue = (rankingType: string) => {
-    if (!myData) return 0;
-    
-    switch (rankingType) {
-      case 'distance':
-        return myData.total_distance_km || 0;
-      case 'max_distance':
-        return myData.max_distance_km || 0;
-      case 'count':
-        return myData.ride_count || 0;
-      case 'total_time':
-        return myData.total_time_seconds || 0;
-      case 'max_time':
-        return myData.max_time_seconds || 0;
-      default:
-        return 0;
-    }
-  };
 
   const isMyRanking = (nickname: string) => {
     return userInfo?.nickname && nickname === userInfo.nickname;
@@ -186,8 +168,8 @@ export default function RankingScreen() {
   }
 
   const currentRankingType = rankingTypes[selectedRankingIndex];
-  const myCurrentRank = myRank?.ranks?.[selectedRanking];
-  const myCurrentValue = getMyValue(selectedRanking);
+  const myCurrentRank = myRank?.ranks?.[selectedRanking]?.rank || null;
+  const myCurrentValue = myRank?.ranks?.[selectedRanking]?.value || 0;
 
   return (
     <ScrollView 

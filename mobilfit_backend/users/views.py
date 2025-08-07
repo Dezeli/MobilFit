@@ -6,14 +6,12 @@ from users.serializers import *
 from utils.response import success_response, error_response
 from utils.masking import mask_username
 from utils.password import generate_temp_password
-from utils.time import get_month_range
 from rest_framework_simplejwt.views import TokenRefreshView as SimpleJWTRefreshView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from decouple import config
-from django.utils.timezone import now, make_aware
-from datetime import timedelta, datetime
+from datetime import timedelta
 from django.utils.timezone import localtime
 from django.utils.dateparse import parse_datetime
 from django.db.models import Sum, Max, Count, F, Window
@@ -339,6 +337,7 @@ class MyRankView(APIView):
         period = request.query_params.get("period", "month")
         today = localtime()
 
+        # 1. 기간별 로그 필터링
         if period == "today":
             logs = RideLog.objects.filter(started_at__date=today.date())
         elif period == "month":
@@ -351,22 +350,38 @@ class MyRankView(APIView):
         else:
             return Response(error_response({"period": "today, month, all 중 하나여야 합니다."}), status=400)
 
-        aggregated = logs.values("user").annotate(
+        # 2. 사용자별 통계 집계
+        stats = logs.values("user").annotate(
             total_distance=Sum("distance_km"),
             max_distance=Max("distance_km"),
             count_logs=Count("id"),
             total_time=Sum("duration_seconds"),
             max_time=Max("duration_seconds")
-        ).annotate(
-            distance_rank=Window(expression=Rank(), order_by=F("total_distance").desc()),
-            max_distance_rank=Window(expression=Rank(), order_by=F("max_distance").desc()),
-            count_rank=Window(expression=Rank(), order_by=F("count_logs").desc()),
-            total_time_rank=Window(expression=Rank(), order_by=F("total_time").desc()),
-            max_time_rank=Window(expression=Rank(), order_by=F("max_time").desc())
         )
 
-        my = aggregated.filter(user=user.id).order_by("user").first()
+        stats = list(stats)  # 리스트로 변환해 정렬 가능하게 함
 
+        # 3. 랭킹 계산 함수 정의
+        def assign_ranks(data, key, rank_key):
+            sorted_data = sorted(data, key=lambda x: x[key] or 0, reverse=True)
+            for idx, item in enumerate(sorted_data):
+                item[rank_key] = idx + 1
+            return sorted_data
+
+        # 4. 모든 항목에 대해 랭킹 계산
+        rank_fields = [
+            ("total_distance", "distance_rank"),
+            ("max_distance", "max_distance_rank"),
+            ("count_logs", "count_rank"),
+            ("total_time", "total_time_rank"),
+            ("max_time", "max_time_rank"),
+        ]
+
+        for key, rank_key in rank_fields:
+            stats = assign_ranks(stats, key, rank_key)
+
+        # 5. 내 랭킹 정보 추출
+        my = next((item for item in stats if item["user"] == user.id), None)
 
         if not my:
             return Response(success_response({
@@ -375,6 +390,7 @@ class MyRankView(APIView):
                 "message": "해당 기간에 기록이 없습니다."
             }))
 
+        # 6. 평균 등수 → 등급 계산
         ranks = [
             my["distance_rank"],
             my["max_distance_rank"],
@@ -393,6 +409,7 @@ class MyRankView(APIView):
         else:
             grade = "브론즈"
 
+        # 7. 응답 반환
         return Response(success_response({
             "period": period,
             "ranks": {
@@ -420,7 +437,6 @@ class MyRankView(APIView):
             "average_rank": round(avg_rank, 2),
             "grade": grade
         }))
-
 
 class RankingView(APIView):
     permission_classes = [IsAuthenticated]
@@ -573,7 +589,7 @@ class RideLogListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        cutoff = now() - timedelta(days=14)
+        cutoff = localtime() - timedelta(days=14)
         logs = RideLog.objects.filter(user=request.user, started_at__gte=cutoff).order_by('-started_at')
 
         data = [
