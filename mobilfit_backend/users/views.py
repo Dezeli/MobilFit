@@ -222,11 +222,6 @@ class MyPageView(APIView):
         else:
             last_used_display = "기록 없음"
 
-        # 누적 거리 계산
-        ride_stats = RideLog.objects.filter(user=user).aggregate(
-            total_distance_km=Sum("distance_km")
-        )
-        total_distance_km = ride_stats["total_distance_km"] or 0
 
         return Response(success_response(
             result={
@@ -234,7 +229,7 @@ class MyPageView(APIView):
                 "ride_score": user_data.ride_score,
                 "app_usage_count": user_data.app_usage_count,
                 "total_saved_money": user_data.total_saved_money,
-                "total_distance_km": round(total_distance_km, 2),
+                "total_distance_km": round(user_data.total_distance_km, 2),
                 "last_used_at": last_used_display
             }
         ))

@@ -17,8 +17,6 @@ export default function Index() {
           router.replace("/landing");
           return;
         }
-        router.replace("/landing");
-        return;
 
         const refreshToken = await getItem("refreshToken");
         if (refreshToken) {

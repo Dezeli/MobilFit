@@ -43,7 +43,7 @@ export default function LandingScreen() {
             <Image 
               source={require('../assets/images/landing1.jpg')} 
               style={styles.featureImage}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           </View>
           <View style={styles.featureContent}>
@@ -65,9 +65,9 @@ export default function LandingScreen() {
           </View>
           <View style={styles.featureImageContainer}>
             <Image 
-              source={require('../assets/images/landing1.jpg')} 
+              source={require('../assets/images/landing2.jpg')} 
               style={styles.featureImage}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           </View>
         </View>
@@ -106,9 +106,9 @@ export default function LandingScreen() {
         <View style={styles.featureRowItem}>
           <View style={styles.featureImageContainer}>
             <Image 
-              source={require('../assets/images/landing1.jpg')} 
+              source={require('../assets/images/landing3.jpg')} 
               style={styles.featureImage}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           </View>
           <View style={styles.featureContent}>
@@ -130,9 +130,9 @@ export default function LandingScreen() {
           </View>
           <View style={styles.featureImageContainer}>
             <Image 
-              source={require('../assets/images/landing1.jpg')} 
+              source={require('../assets/images/landing4.jpg')} 
               style={styles.featureImage}
-              resizeMode="cover"
+              resizeMode="contain"
             />
           </View>
         </View>

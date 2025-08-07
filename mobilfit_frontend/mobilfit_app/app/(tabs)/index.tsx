@@ -136,7 +136,8 @@ export default function HomeScreen() {
     
     const totalDistance = myPageData.total_distance_km || 0;
     const totalSaving = myPageData.total_saved_money || 0;
-    
+    console.log("🌟 토탈:", myPageData);
+    console.log("🌟 토탈:", totalDistance, totalSaving);
     // 환경 지표 계산
     const co2Saved = Math.round(totalDistance * 0.21); // 1km당 0.21kg CO2 절감
     const treeEquivalent = Math.floor(co2Saved / 22); // 나무 1그루당 22kg CO2 흡수
@@ -147,39 +148,46 @@ export default function HomeScreen() {
 
   const environmentData = getEnvironmentData();
 
-  // 5개 아이콘 가로 정렬 함수
-  const renderFiveIconProgress = (current: number, max: number, iconName: string, color: string) => {
-    const progress = Math.min(current / max, 1);
+  
+  const renderFiveIconProgress = (
+    current: number,
+    unit: number,
+    iconName: string
+  ) => {
     const totalIcons = 5;
-    const filledAmount = progress * totalIcons;
-    
+    const progress = Math.min(current / unit, totalIcons); // ex: 3 / 2 = 1.5
+    const fullCount = Math.floor(progress);   // 정수 부분 (1)
+    const hasHalf = progress % 1 >= 0.5;      // 반 채울지 여부
+
+    const FULL_COLOR = '#2E7D32';
+    const HALF_COLOR = '#A5D6A7';
+    const EMPTY_COLOR = '#E0E0E0';
+
+    const icons = [];
+
+    for (let i = 0; i < totalIcons; i++) {
+      let iconColor = EMPTY_COLOR;
+
+      if (i < fullCount) {
+        iconColor = FULL_COLOR;
+      } else if (i === fullCount && hasHalf) {
+        iconColor = HALF_COLOR;
+      }
+
+      icons.push(
+        <Ionicons
+          key={i}
+          name={iconName}
+          size={22}
+          color={iconColor}
+          style={{ marginHorizontal: 2 }}
+        />
+      );
+    }
+
     return (
-      <View style={styles.iconRowContainer}>
-        <Ionicons 
-          name={iconName} 
-          size={24} 
-          color={filledAmount >= 1 ? color : '#E0E0E0'} 
-        />
-        <Ionicons 
-          name={iconName} 
-          size={24} 
-          color={filledAmount >= 2 ? color : '#E0E0E0'} 
-        />
-        <Ionicons 
-          name={iconName} 
-          size={24} 
-          color={filledAmount >= 3 ? color : '#E0E0E0'} 
-        />
-        <Ionicons 
-          name={iconName} 
-          size={24} 
-          color={filledAmount >= 4 ? color : '#E0E0E0'} 
-        />
-        <Ionicons 
-          name={iconName} 
-          size={24} 
-          color={filledAmount >= 5 ? color : '#E0E0E0'} 
-        />
+      <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+        {icons}
       </View>
     );
   };
@@ -316,12 +324,12 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>나의 친환경 기록</Text>
         <View style={styles.environmentGrid}>
           <View style={styles.envCard}>
-            {renderFiveIconProgress(environmentData.treeEquivalent, 50, 'leaf', '#4CAF50')}
+            {renderFiveIconProgress(environmentData.treeEquivalent, 1, 'leaf')}
             <Text style={styles.envInfoLine}>{environmentData.treeEquivalent}그루 / {environmentData.co2Saved}kg CO₂ 절감</Text>
           </View>
 
           <View style={styles.envCard}>
-            {renderFiveIconProgress(environmentData.coffeeCount, 50, 'cafe', '#FF9800')}
+            {renderFiveIconProgress(environmentData.coffeeCount, 2, 'cafe')}
             <Text style={styles.envInfoLine}>{environmentData.coffeeCount}잔 / {(myPageData?.total_saved_money || 0).toLocaleString()}원 절약</Text>
           </View>
         </View>
@@ -531,7 +539,7 @@ const styles = StyleSheet.create({
   envCard: {
     backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 25,
+    padding: 15,
     alignItems: 'center',
     flex: 1,
     shadowColor: '#000',
