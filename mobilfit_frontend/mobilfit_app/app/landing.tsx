@@ -33,22 +33,50 @@ export default function LandingScreen() {
         />
       </View>
       
-      <View style={styles.rightNowHeader}>
-        <Text style={styles.cardTitle}>스마트한 이동의 첫걸음</Text>
+      <View style={styles.comingSoonHeader}>
+        <Text style={styles.cardTitle}>스마트 추천과 환경 가치</Text>
       </View>
 
-      <View style={styles.mainImageContainer}>
-        <Image 
-          source={require('../assets/images/landing1.jpg')} 
-          style={styles.mainImage}
-          resizeMode="cover"
-        />
+      <View style={styles.featuresContainer}>
+        <View style={styles.featureRowItem}>
+          <View style={styles.featureImageContainer}>
+            <Image 
+              source={require('../assets/images/landing1.jpg')} 
+              style={styles.featureImage}
+              resizeMode="cover"
+            />
+          </View>
+          <View style={styles.featureContent}>
+            <Text style={styles.featureName}>경로 기반{'\n'}전기자전거 추천</Text>
+            <Text 
+              style={styles.featureDesc}
+              allowFontScaling={false}
+            >신호등, 자전거도로, 언덕 정보를 분석하여 가장 효율적인 전기 자전거 브랜드를 추천합니다.</Text>
+          </View>
+        </View>
+
+        <View style={styles.featureRowItem}>
+          <View style={styles.featureContent}>
+            <Text style={styles.featureName}>환경/경제{'\n'}기여도 시각화</Text>
+            <Text 
+              style={styles.featureDesc}
+              allowFontScaling={false}
+            >내가 달린 거리와 절약한 금액을 바탕으로 친환경 가치를 실감할 수 있어요.</Text>
+          </View>
+          <View style={styles.featureImageContainer}>
+            <Image 
+              source={require('../assets/images/landing1.jpg')} 
+              style={styles.featureImage}
+              resizeMode="cover"
+            />
+          </View>
+        </View>
       </View>
     </View>
   );
 
   const renderCard2 = () => (
-    <View style={[styles.card, { backgroundColor: '#f0f9ff', paddingHorizontal:20,}]}>
+    <View style={[styles.card, { backgroundColor: '#f0f9ff' }]}>
       <View style={styles.decorativeCircle}>
         <LinearGradient
           colors={['#1890ff', '#69c0ff']}
@@ -71,39 +99,42 @@ export default function LandingScreen() {
       </View>
       
       <View style={styles.comingSoonHeader}>
-        <Text style={styles.cardTitle}>Mobilfit이 준비하는 미래</Text>
+        <Text style={styles.cardTitle}>라이딩 데이터 관리</Text>
       </View>
       
-      <View style={styles.featureItem}>
-        <View style={styles.featureIconContainer}>
-          <Text style={styles.featureIcon}>🌱</Text>
+      <View style={styles.featuresContainer}>
+        <View style={styles.featureRowItem}>
+          <View style={styles.featureImageContainer}>
+            <Image 
+              source={require('../assets/images/landing1.jpg')} 
+              style={styles.featureImage}
+              resizeMode="cover"
+            />
+          </View>
+          <View style={styles.featureContent}>
+            <Text style={styles.featureName}>라이딩 기록 관리</Text>
+            <Text 
+              style={styles.featureDesc}
+              allowFontScaling={false}
+            >라이딩 정보를 자동으로 저장하고 거리, 시간, 절약 금액 등을 확인할 수 있어요.</Text>
+          </View>
         </View>
-        <View style={styles.featureText}>
-          <Text style={[styles.featureName, styles.comingFeature]}>CO₂ 절감 기여도 분석</Text>
-          <Text style={[styles.featureTitle, styles.comingFeature]}>환경을 생각하는 이동</Text>
-          <Text style={[styles.featureDesc, styles.comingFeature]}>전기자전거 이용을 통해 탄소 배출을 줄이는 친환경 이동 가치를 강조합니다.</Text>
-        </View>
-      </View>
 
-      <View style={styles.featureItem}>
-        <View style={styles.featureIconContainer}>
-          <Text style={styles.featureIcon}>📊</Text>
-        </View>
-        <View style={styles.featureText}>
-          <Text style={[styles.featureName, styles.comingFeature]}>운전 점수 제공</Text>
-          <Text style={[styles.featureTitle, styles.comingFeature]}>안전하고 효율적인 주행 경험</Text>
-          <Text style={[styles.featureDesc, styles.comingFeature]}>주행 데이터를 기반으로 보다 안전하고 지속 가능한 이동 습관을 설계합니다.</Text>
-        </View>
-      </View>
-
-      <View style={styles.featureItem}>
-        <View style={styles.featureIconContainer}>
-          <Text style={styles.featureIcon}>🔖</Text>
-        </View>
-        <View style={styles.featureText}>
-          <Text style={[styles.featureName, styles.comingFeature]}>즐겨찾기 & 쿠폰 연동</Text>
-          <Text style={[styles.featureTitle, styles.comingFeature]}>자주 찾는 경로와 혜택을 한눈에</Text>
-          <Text style={[styles.featureDesc, styles.comingFeature]}>브랜드별 이동 경로와 혜택을 손쉽게 관리할 수 있는 경험을 만들어갑니다.</Text>
+        <View style={styles.featureRowItem}>
+          <View style={styles.featureContent}>
+            <Text style={styles.featureName}>라이딩 랭킹 시스템</Text>
+            <Text 
+              style={styles.featureDesc}
+              allowFontScaling={false}
+            >다른 사용자들과 순위를 비교하고 최고의 라이더가 되어보세요.</Text>
+          </View>
+          <View style={styles.featureImageContainer}>
+            <Image 
+              source={require('../assets/images/landing1.jpg')} 
+              style={styles.featureImage}
+              resizeMode="cover"
+            />
+          </View>
         </View>
       </View>
     </View>
@@ -365,6 +396,42 @@ const styles = StyleSheet.create({
     marginHorizontal: -25,
     zIndex: 2,
   },
+  featuresContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  featureRowItem: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    marginBottom: 30,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 8,
+    overflow: 'hidden',
+    height: 170,
+  },
+  featureImageContainer: {
+    width: 150,
+    height: 170,
+  },
+  featureImage: {
+    width: '100%',
+    height: '100%',
+  },
+  featureContent: {
+    flex: 1,
+    padding: 15,
+    justifyContent: 'center',
+  },
   mainImageContainer: {
     flex: 1,
     width: '100%',
@@ -394,8 +461,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
-    marginTop: 4,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -412,10 +478,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureName: {
-    fontSize: 18,
-    fontFamily: 'Pretendard-Bold',
+    fontSize: 16,
+    fontFamily: 'Cafe24',
     color: '#2c3e50',
-    marginBottom: 4,
+    marginBottom: 10,
+    marginLeft: 2,
   },
   featureTitle: {
     fontSize: 14,

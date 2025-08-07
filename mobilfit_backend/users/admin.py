@@ -9,6 +9,20 @@ class UserAdmin(BaseUserAdmin):
     search_fields = ('username', 'nickname', 'email')
     ordering = ('-date_joined',)
 
+    fieldsets = (
+        (None, {'fields': ('username', 'email', 'password')}),
+        ('개인 정보', {'fields': ('nickname',)}),  # ✅ nickname 추가
+        ('권한', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('중요 날짜', {'fields': ('last_login', 'date_joined')}),
+    )
+
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('username', 'email', 'nickname', 'password1', 'password2', 'is_staff', 'is_active')}
+        ),
+    )
+
 @admin.register(UserToken)
 class UserTokenAdmin(admin.ModelAdmin):
     list_display = ('user', 'created_at', 'expired_at')

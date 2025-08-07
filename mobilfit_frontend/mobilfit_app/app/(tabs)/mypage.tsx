@@ -118,7 +118,9 @@ export default function MyPageScreen() {
               setUser(null);
               router.replace("/auth/login");
             } catch (error: any) {
-              Alert.alert("오류", error.message || "로그아웃에 실패했습니다.");
+              await SecureStore.deleteItemAsync("accessToken");
+              await SecureStore.deleteItemAsync("refreshToken");
+              router.replace("/auth/login");
             }
           },
         },

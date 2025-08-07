@@ -40,7 +40,7 @@ export default function TabLayout() {
           borderTopWidth: 1,
           borderTopColor: '#F0F0F0',
           height: 80 + insets.bottom,
-          paddingBottom: Math.max(insets.bottom + 15, 25),
+          paddingBottom: Math.max(insets.bottom + 10, 20),
           paddingTop: 4,
           elevation: 8,
           shadowColor: '#000',
