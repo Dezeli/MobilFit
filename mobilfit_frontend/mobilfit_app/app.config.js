@@ -48,5 +48,18 @@ export default {
         projectId: 'a321c62c-10cd-4c46-b758-d85c143e3944',
       },
     },
+
+    plugins: [
+      [
+        'expo-build-properties',
+        {
+          android: {
+            cmakeVersion: '3.22.1',
+            ndkVersion: '23.1.7779620',
+            buildToolsVersion: '34.0.0',
+          },
+        },
+      ],
+    ],
   },
 };
