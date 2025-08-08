@@ -101,7 +101,6 @@ export default function ChangePasswordScreen() {
       setSuccessMessage("비밀번호가 성공적으로 변경되었습니다!");
       setErrorMessage("");
       
-      // 성공 후 3초 뒤 뒤로가기
       setTimeout(() => {
         router.back();
       }, 2000);
@@ -133,7 +132,6 @@ export default function ChangePasswordScreen() {
           scrollEnabled={keyboardVisible}
         >
           <View style={styles.container}>
-            {/* Header Section */}
             <View style={styles.headerSection}>
               <TouchableOpacity 
                 onPress={() => router.back()}
@@ -157,12 +155,10 @@ export default function ChangePasswordScreen() {
               </View>
             </View>
 
-            {/* Form Section */}
             <View style={styles.formSection}>
               <View style={styles.formContainer}>
                 
                 {successMessage ? (
-                  /* Success View */
                   <View style={styles.successContainer}>
                     <View style={styles.successIconContainer}>
                       <Ionicons name="checkmark-circle" size={60} color="#52C41A" />
@@ -177,9 +173,7 @@ export default function ChangePasswordScreen() {
                     </View>
                   </View>
                 ) : (
-                  /* Change Password Form */
                   <>
-                    {/* Current Password Input */}
                     <View style={styles.inputGroup}>
                       <TouchableOpacity 
                         style={[
@@ -224,7 +218,6 @@ export default function ChangePasswordScreen() {
                       </TouchableOpacity>
                     </View>
 
-                    {/* New Password Input */}
                     <View style={styles.inputGroup}>
                       <TouchableOpacity 
                         style={[
@@ -273,7 +266,6 @@ export default function ChangePasswordScreen() {
                       </TouchableOpacity>
                     </View>
 
-                    {/* Confirm New Password Input */}
                     <View style={styles.inputGroup}>
                       <TouchableOpacity 
                         style={[
@@ -326,7 +318,6 @@ export default function ChangePasswordScreen() {
                       )}
                     </View>
 
-                    {/* Change Password Button */}
                     <TouchableOpacity
                       onPress={handleChangePassword}
                       disabled={loading || !isFormValid}
@@ -362,7 +353,6 @@ export default function ChangePasswordScreen() {
                   </>
                 )}
 
-                {/* Security Info */}
                 {!successMessage && (
                   <View style={styles.securityInfoContainer}>
                     <View style={styles.securityInfo}>

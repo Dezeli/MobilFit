@@ -165,7 +165,6 @@ export default function LandingScreen() {
       
       <Text style={[styles.cardTitle, { marginTop:20,}]}>실제 사용자 후기</Text>
       
-      {/* First Review */}
       <View style={styles.reviewItem}>
         <View style={styles.ribbonContainer}>
           <View style={[styles.ribbonBadge, { backgroundColor: '#1890ff' }]}>
@@ -186,7 +185,6 @@ export default function LandingScreen() {
         </LinearGradient>
       </View>
 
-      {/* Second Review */}
       <View style={styles.reviewItem}>
         <View style={styles.ribbonContainer}>
           <View style={[styles.ribbonBadge, { backgroundColor: '#52C41A' }]}>
@@ -207,7 +205,6 @@ export default function LandingScreen() {
         </LinearGradient>
       </View>
 
-      {/* Third Review */}
       <View style={styles.reviewItem}>
         <View style={styles.ribbonContainer}>
           <View style={[styles.ribbonBadge, { backgroundColor: '#73d13d' }]}>
@@ -321,7 +318,6 @@ export default function LandingScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
 
-      {/* Cards Section */}
       <View style={styles.cardsContainer}>
         <ScrollView
           ref={scrollViewRef}
@@ -338,7 +334,6 @@ export default function LandingScreen() {
           {renderCard4()}
         </ScrollView>
 
-        {/* Page Indicator */}
         <View style={styles.pageIndicator}>
           {[0, 1, 2, 3].map((index) => (
             <View
@@ -351,7 +346,6 @@ export default function LandingScreen() {
           ))}
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
           <TouchableOpacity onPress={() => router.push("/settings/conditions")}>
             <Text style={styles.footerText}>약관 및 정책 보기</Text>
@@ -611,7 +605,6 @@ const styles = StyleSheet.create({
     color: '#5a6c7d',
     lineHeight: 20,
   },
-  // Review styles for third page
   reviewItem: {
     marginBottom: 16,
     overflow: 'visible',
@@ -663,7 +656,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: 10,
   },
-  // New Ribbon styles
   ribbonContainer: {
     position: 'absolute',
     left: -20,
@@ -808,7 +800,6 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textDecorationLine: 'underline',
   },
-  // Decorative elements
   decorativeShape: {
     position: 'absolute',
     top: -20,

@@ -91,7 +91,6 @@ export default function SignupScreen() {
     if (errorMessage) setErrorMessage("");
   };
 
-  // 인증 코드 전송
   const handleSendCode = async () => {
     setErrorMessage("");
     
@@ -118,7 +117,6 @@ export default function SignupScreen() {
     }
   };
 
-  // 인증 코드 확인
   const handleVerifyCode = async () => {
     setErrorMessage("");
     
@@ -148,7 +146,6 @@ export default function SignupScreen() {
     }
   };
 
-  // 회원가입
   const handleSignup = async () => {
     setErrorMessage("");
     
@@ -229,7 +226,6 @@ export default function SignupScreen() {
           scrollEnabled={true}
         >
           <View style={styles.container}>
-            {/* Header Section */}
             <View style={styles.headerSection}>
               <TouchableOpacity 
                 onPress={() => router.back()}
@@ -253,11 +249,9 @@ export default function SignupScreen() {
               </View>
             </View>
 
-            {/* Form Section */}
             <View style={styles.formSection}>
               <View style={styles.formContainer}>
                 
-                {/* Success Message */}
                 {successMessage && (
                   <View style={styles.successMessageContainer}>
                     <Ionicons name="checkmark-circle" size={18} color="#52C41A" />
@@ -265,10 +259,8 @@ export default function SignupScreen() {
                   </View>
                 )}
 
-                {/* Email Section */}
                 <View style={styles.sectionContainer}>
                   
-                  {/* Email Input */}
                   <View style={styles.inputGroup}>
                     <TouchableOpacity 
                       style={[
@@ -306,7 +298,6 @@ export default function SignupScreen() {
                         <Ionicons name="checkmark-circle" size={18} color="#52C41A" />
                       )}
                     </TouchableOpacity>
-                    {/* Email 에러 메시지 */}
                     {errorMessage && !codeSent && (
                       <Text style={styles.errorText}>{errorMessage}</Text>
                     )}
@@ -314,7 +305,6 @@ export default function SignupScreen() {
 
                   {!emailVerified && (
                     <>
-                      {/* Send Code Button */}
                       <TouchableOpacity
                         onPress={handleSendCode}
                         disabled={sending || !email || !validateEmail(email)}
@@ -348,7 +338,6 @@ export default function SignupScreen() {
                         </LinearGradient>
                       </TouchableOpacity>
 
-                      {/* Verification Code Input - 코드 전송 성공 시에만 표시 */}
                       {codeSent && (
                         <>
                           <View style={styles.inputGroup}>
@@ -385,13 +374,11 @@ export default function SignupScreen() {
                                 <Ionicons name="checkmark-circle" size={18} color="#52C41A" />
                               )}
                             </TouchableOpacity>
-                            {/* 인증 코드 에러 메시지 */}
                             {errorMessage && codeSent && (
                               <Text style={styles.errorText}>{errorMessage}</Text>
                             )}
                           </View>
 
-                          {/* Verify Code Button */}
                           <TouchableOpacity
                             onPress={handleVerifyCode}
                             disabled={verifying || !emailCode || !validateCode(emailCode)}
@@ -430,10 +417,8 @@ export default function SignupScreen() {
                   )}
                 </View>
 
-                {/* Account Info Section */}
                 <View style={styles.sectionContainer}>
                   
-                  {/* Username Input */}
                   <View style={styles.inputGroup}>
                     <TouchableOpacity 
                       style={[
@@ -470,7 +455,6 @@ export default function SignupScreen() {
                     </TouchableOpacity>
                   </View>
 
-                  {/* Password Input */}
                   <View style={styles.inputGroup}>
                     <TouchableOpacity 
                       style={[
@@ -518,8 +502,6 @@ export default function SignupScreen() {
                       )}
                     </TouchableOpacity>
                   </View>
-
-                  {/* Confirm Password Input */}
                   <View style={styles.inputGroup}>
                     <TouchableOpacity 
                       style={[
@@ -568,7 +550,6 @@ export default function SignupScreen() {
                     </TouchableOpacity>
                   </View>
 
-                  {/* Nickname Input */}
                   <View style={styles.inputGroup}>
                     <TouchableOpacity 
                       style={[
@@ -604,13 +585,11 @@ export default function SignupScreen() {
                         <Ionicons name="checkmark-circle" size={18} color="#52C41A" />
                       )}
                     </TouchableOpacity>
-                    {/* 회원가입 관련 에러 메시지 */}
                     {errorMessage && emailVerified && allTermsAgreed && (
                       <Text style={styles.errorText}>{errorMessage}</Text>
                     )}
                   </View>
 
-                  {/* Terms Agreement Section */}
                   <View style={styles.agreementSection}>
                     <TouchableOpacity
                       style={styles.checkboxContainer}
@@ -637,13 +616,11 @@ export default function SignupScreen() {
                       </TouchableOpacity>
                     </TouchableOpacity>
 
-                    {/* 약관 동의 에러 메시지 */}
                     {errorMessage && !allTermsAgreed && (
                       <Text style={styles.errorText}>{errorMessage}</Text>
                     )}
                   </View>
 
-                  {/* Signup Button */}
                   <TouchableOpacity
                     onPress={handleSignup}
                     disabled={loading || !isFormValid}

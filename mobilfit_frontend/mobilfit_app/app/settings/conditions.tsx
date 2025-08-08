@@ -9,7 +9,7 @@ const { width, height } = Dimensions.get('window');
 export default function TermsPrivacyScreen() {
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
-  const [activeTab, setActiveTab] = useState('terms'); // 'terms' or 'privacy'
+  const [activeTab, setActiveTab] = useState('terms');
 
   const handleTabPress = (tab: 'terms' | 'privacy') => {
     setActiveTab(tab);
@@ -262,7 +262,6 @@ export default function TermsPrivacyScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => router.back()}
@@ -275,7 +274,6 @@ export default function TermsPrivacyScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Tab Selector */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'terms' && styles.activeTab]}
@@ -322,7 +320,6 @@ export default function TermsPrivacyScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Content */}
       <ScrollView 
         ref={scrollRef}
         style={styles.scrollContainer}

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, ScrollView, GestureResponderEvent, Image, PanGestureHandler, PanGestureHandlerGestureEvent, Platform, TextInput, Keyboard } from "react-native";
+import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, GestureResponderEvent, Image, Alert, Platform, TextInput, Keyboard } from "react-native";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { apiPost, apiGet } from "../../lib/api";
 import * as SecureStore from "expo-secure-store";
@@ -79,7 +79,6 @@ const LEAFLET_HTML = `
         if (typeof data === "string") data = JSON.parse(data);
 
         if (data.type === "setStartMarker") {
-          // 출발지 마커 설정
           if (startMarker) {
             map.removeLayer(startMarker);
           }
@@ -88,7 +87,6 @@ const LEAFLET_HTML = `
             startMarker.bindPopup(data.name);
           }
         } else if (data.type === "setEndMarker") {
-          // 도착지 마커 설정
           if (endMarker) {
             map.removeLayer(endMarker);
           }
@@ -97,19 +95,16 @@ const LEAFLET_HTML = `
             endMarker.bindPopup(data.name);
           }
         } else if (data.type === "removeStartMarker") {
-          // 출발지 마커 제거
           if (startMarker) {
             map.removeLayer(startMarker);
             startMarker = null;
           }
         } else if (data.type === "removeEndMarker") {
-          // 도착지 마커 제거
           if (endMarker) {
             map.removeLayer(endMarker);
             endMarker = null;
           }
         } else if (data.type === "getMapCenter") {
-          // 지도 중심점 좌표 반환
           const center = map.getCenter();
           window.ReactNativeWebView.postMessage(JSON.stringify({ 
             type: "mapCenter", 
@@ -177,16 +172,13 @@ const LEAFLET_HTML = `
           isSearchingRoute = data.value;
         }
       } catch (e) {
-        // 메시지 처리 오류 무시
+        Alert.alert("오류", "문제가 발생했습니다.");
       }
     }
 
-    // Android용 메시지 수신
     document.addEventListener("message", handleMessage);
-    // iOS용 메시지 수신
     window.addEventListener("message", handleMessage);
 
-    // 지도 클릭 시 좌표만 전달 (마커 표시는 하지 않음)
     map.on("click", function(e) {
       const lat = e.latlng.lat, lng = e.latlng.lng;
       window.ReactNativeWebView.postMessage(JSON.stringify({ 
@@ -196,7 +188,6 @@ const LEAFLET_HTML = `
       }));
     });
 
-    // 지도 이동 시 중심점 좌표 업데이트
     map.on("moveend", function() {
       const center = map.getCenter();
       window.ReactNativeWebView.postMessage(JSON.stringify({ 
@@ -253,7 +244,6 @@ const Explore: React.FC = () => {
   const [isRideInProgress, setIsRideInProgress] = useState(false);
   const [hasArrived, setHasArrived] = useState(false);
   
-  // 검색 관련 state
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -262,31 +252,25 @@ const Explore: React.FC = () => {
   const [currentSearchPage, setCurrentSearchPage] = useState(0);
   const [searchError, setSearchError] = useState<string>("");
   
-  // 지도 직접 선택 모드
   const [isSelectingStart, setIsSelectingStart] = useState(false);
   const [isSelectingEnd, setIsSelectingEnd] = useState(false);
   
-  // 선택된 장소 이름 저장
   const [startPointName, setStartPointName] = useState<string>("");
   const [endPointName, setEndPointName] = useState<string>("");
   
-  // 검색바와 지도선택바 표시 여부
   const [showTopBars, setShowTopBars] = useState(true);
   
-  // 경로 에러 상태
   const [routeError, setRouteError] = useState<string>("");
   
-  // 검색 결과 없음 상태 추가
   const [hasNoSearchResults, setHasNoSearchResults] = useState(false);
   
-  // bottomSheet 높이 상수
   const BOTTOM_SHEET_HEIGHTS = {
-    INITIAL: 80,        // 초기 상태 (출발지/도착지 설정하세요)
-    LOADING: 150,       // 경로 탐색중 (유일하게 150)
-    SEARCH_MIN: 80,     // 검색 결과 접힌 상태  
-    SEARCH_MAX: 400,    // 검색 결과 펼친 상태
-    ROUTE_MIN: 80,      // 경로 결과 접힌 상태
-    ROUTE_MAX: 400,     // 경로 결과 펼친 상태
+    INITIAL: 80,
+    LOADING: 150,
+    SEARCH_MIN: 80,
+    SEARCH_MAX: 400,
+    ROUTE_MIN: 80,
+    ROUTE_MAX: 400,
   };
   const webViewRef = useRef<any>(null);
   const bottomSheetHeight = useRef(new Animated.Value(BOTTOM_SHEET_HEIGHTS.INITIAL)).current;
@@ -296,7 +280,6 @@ const Explore: React.FC = () => {
   const searchTranslateX = useRef(new Animated.Value(0)).current;
   const [touchStart, setTouchStart] = useState<{x: number, y: number} | null>(null);
 
-  // 안드로이드 호환 로딩 애니메이션
   React.useEffect(() => {
     if (isLoading) {
       spinValue.setValue(0);
@@ -339,7 +322,6 @@ const Explore: React.FC = () => {
 
   const [routeTypes, setRouteTypes] = useState<{ key: string; label: string }[]>([]);
 
-  // 지도 검색 API 호출
   const searchPlaces = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -348,7 +330,6 @@ const Explore: React.FC = () => {
       return;
     }
 
-    // 키보드 숨기기
     Keyboard.dismiss();
 
     setIsSearching(true);
@@ -356,13 +337,10 @@ const Explore: React.FC = () => {
     setSearchError("");
     
     try {
-      // 지도 중심점 좌표 요청
       webViewRef.current?.postMessage(JSON.stringify({ type: "getMapCenter" }));
       
-      // 잠시 대기 후 API 호출
       setTimeout(async () => {
         try {
-          // 액세스 토큰 가져오기
           const accessToken = await SecureStore.getItemAsync("accessToken");
           
           if (!accessToken) {
@@ -380,18 +358,12 @@ const Explore: React.FC = () => {
           }
           
           const apiUrl = `/api/v1/ors/search/?query=${encodeURIComponent(query)}&x=${mapCenter.lng}&y=${mapCenter.lat}`;
-          
-          console.log("📍 mapCenter:", mapCenter);
-          console.log("🔎 query:", query);
-          console.log("🌍 호출 URL:", apiUrl);
           const response = await apiGet(apiUrl, accessToken);
-          console.log("🌍 response:", response);
           
           if (response.success && response.data && response.data.results) {
-            const results = response.data.results.slice(0, 8); // 최대 8개
+            const results = response.data.results.slice(0, 8);
             
             if (results.length === 0) {
-              // 검색 결과가 0개인 경우
               setSearchResults([]);
               setShowSearchResults(true);
               setHasNoSearchResults(true);
@@ -403,7 +375,6 @@ const Explore: React.FC = () => {
               }).start();
               setIsMinimized(false);
             } else {
-              // 검색 결과가 있는 경우
               setSearchResults(results);
               setShowSearchResults(true);
               setHasNoSearchResults(false);
@@ -416,7 +387,6 @@ const Explore: React.FC = () => {
               setIsMinimized(false);
             }
           } else {
-            // API 실패 또는 데이터 없음
             setSearchResults([]);
             setShowSearchResults(true);
             setHasNoSearchResults(true);
@@ -429,7 +399,6 @@ const Explore: React.FC = () => {
             setIsMinimized(false);
           }
         } catch (error) {
-          // API 호출 오류
           setSearchResults([]);
           setShowSearchResults(true);
           setHasNoSearchResults(true);
@@ -443,7 +412,6 @@ const Explore: React.FC = () => {
         }
       }, 100);
     } catch (error) {
-      // 전체 함수 오류
       setSearchResults([]);
       setShowSearchResults(true);
       setHasNoSearchResults(true);
@@ -459,23 +427,18 @@ const Explore: React.FC = () => {
     }
   };
 
-  // 지도에서 직접 선택 모드 시작/취소
   const startMapSelection = (type: 'start' | 'end') => {
     if (type === 'start') {
       if (isSelectingStart) {
-        // 이미 선택 모드인 경우 취소
         setIsSelectingStart(false);
       } else {
-        // 선택 모드 활성화
         setIsSelectingStart(true);
         setIsSelectingEnd(false);
       }
     } else {
       if (isSelectingEnd) {
-        // 이미 선택 모드인 경우 취소
         setIsSelectingEnd(false);
       } else {
-        // 선택 모드 활성화
         setIsSelectingEnd(true);
         setIsSelectingStart(false);
       }
@@ -483,7 +446,6 @@ const Explore: React.FC = () => {
     setIsRouteFixed(false);
   };
 
-  // 지도에서 직접 선택 완료
   const completeMapSelection = () => {
     setIsSelectingStart(false);
     setIsSelectingEnd(false);
@@ -497,7 +459,6 @@ const Explore: React.FC = () => {
     if (type === 'start') {
       setStartPoint(point);
       setStartPointName(result.name);
-      // 지도에 출발지 마커 표시
       webViewRef.current?.postMessage(JSON.stringify({
         type: "setStartMarker",
         lat: point.lat,
@@ -507,7 +468,6 @@ const Explore: React.FC = () => {
     } else {
       setEndPoint(point);
       setEndPointName(result.name);
-      // 지도에 도착지 마커 표시
       webViewRef.current?.postMessage(JSON.stringify({
         type: "setEndMarker",
         lat: point.lat,
@@ -516,31 +476,27 @@ const Explore: React.FC = () => {
       }));
     }
 
-    // 출발지와 도착지가 모두 설정되었을 때만 경로 탐색
     const newStartPoint = type === 'start' ? point : startPoint;
     const newEndPoint = type === 'end' ? point : endPoint;
     
     if (newStartPoint && newEndPoint) {
       setShowSearchResults(false);
       setHasNoSearchResults(false);
-      // bottomSheet 크기를 로딩 크기로 조정한 후 경로 탐색 시작
       Animated.spring(bottomSheetHeight, {
-        toValue: BOTTOM_SHEET_HEIGHTS.LOADING, // 150 (유일하게 150)
+        toValue: BOTTOM_SHEET_HEIGHTS.LOADING,
         useNativeDriver: false,
       }).start(() => {
         drawAllRoutes(newStartPoint, newEndPoint);
       });
     } else {
-      // 하나만 설정된 경우 검색 결과를 유지하고 bottomSheet 높이만 조정
       Animated.spring(bottomSheetHeight, {
-        toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MIN, // 80
+        toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MIN,
         useNativeDriver: false,
       }).start();
       setIsMinimized(true);
     }
   };
 
-  // 검색 결과 페이지 변경
   const handleSearchPageChange = (direction: 'left' | 'right') => {
     const totalPages = Math.ceil(searchResults.length / 4);
     let newPage = currentSearchPage;
@@ -582,7 +538,6 @@ const Explore: React.FC = () => {
     const deltaX = pageX - touchStart.x;
     const deltaY = pageY - touchStart.y;
 
-    // 검색 결과 표시 중일 때는 검색 페이지 스와이프 (검색 결과가 있을 때만)
     if (showSearchResults && !hasNoSearchResults) {
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
         const maxTranslate = screenWidth * 0.3;
@@ -590,7 +545,6 @@ const Explore: React.FC = () => {
         searchTranslateX.setValue(clampedDeltaX);
       }
     }
-    // 경로 표시 중일 때는 경로 스와이프
     else if (hasRoute) {
       if (Math.abs(deltaX) > Math.abs(deltaY)) {
         const maxTranslate = screenWidth * 0.3;
@@ -610,9 +564,7 @@ const Explore: React.FC = () => {
     const horizontalThreshold = 60;
     const verticalThreshold = 30;
 
-    // 검색 결과 표시 중일 때
     if (showSearchResults) {
-      // 검색 결과가 있을 때만 페이지 스와이프 허용
       if (!hasNoSearchResults && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > horizontalThreshold) {
         if (deltaX > 0) {
           handleSearchPageChange('left');
@@ -635,7 +587,6 @@ const Explore: React.FC = () => {
         }
       }
       
-      // 검색 결과가 있을 때만 스와이프 애니메이션 복원
       if (!hasNoSearchResults) {
         Animated.spring(searchTranslateX, {
           toValue: 0,
@@ -645,7 +596,6 @@ const Explore: React.FC = () => {
         }).start();
       }
     }
-    // 경로 표시 중일 때
     else if (hasRoute) {
       if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > horizontalThreshold) {
         if (deltaX > 0) {
@@ -659,13 +609,13 @@ const Explore: React.FC = () => {
         if (deltaY > 0) {
           setIsMinimized(true);
           Animated.spring(bottomSheetHeight, {
-            toValue: BOTTOM_SHEET_HEIGHTS.ROUTE_MIN, // 80
+            toValue: BOTTOM_SHEET_HEIGHTS.ROUTE_MIN,
             useNativeDriver: false,
           }).start();
         } else {
           setIsMinimized(false);
           Animated.spring(bottomSheetHeight, {
-            toValue: BOTTOM_SHEET_HEIGHTS.ROUTE_MAX, // 430
+            toValue: BOTTOM_SHEET_HEIGHTS.ROUTE_MAX,
             useNativeDriver: false,
           }).start();
         }
@@ -710,11 +660,10 @@ const Explore: React.FC = () => {
   };
 
   const drawAllRoutes = async (start: any, end: any) => {
-    setShowTopBars(false); // 경로 탐색 시작 시 상단 바들 숨김
+    setShowTopBars(false);
     webViewRef.current?.postMessage(JSON.stringify({ type: "setSearching", value: true }));
     setIsLoading(true);
     setRouteError("");
-    // 경로 탐색 시작 시간 기록
     setRouteStartTime(new Date());
 
     try {
@@ -734,7 +683,6 @@ const Explore: React.FC = () => {
 
       const { recommended, easiest, shortest } = response.data;
       
-      // 모든 경로가 없는 경우
       if (!recommended && !easiest && !shortest) {
         throw new Error("경로를 찾을 수 없습니다");
       }
@@ -757,7 +705,6 @@ const Explore: React.FC = () => {
       processRouteData(easiest, 'easiest');
       processRouteData(shortest, 'shortest');
 
-      // 유효한 경로가 하나도 없는 경우
       if (Object.keys(allData).length === 0) {
         throw new Error("유효한 경로를 찾을 수 없습니다");
       }
@@ -783,7 +730,7 @@ const Explore: React.FC = () => {
       setHasRoute(true);
       setIsRouteFixed(true);
       Animated.spring(bottomSheetHeight, {
-        toValue: BOTTOM_SHEET_HEIGHTS.ROUTE_MIN, // 80
+        toValue: BOTTOM_SHEET_HEIGHTS.ROUTE_MIN, 
         useNativeDriver: false,
       }).start();
       setIsMinimized(true);
@@ -800,9 +747,8 @@ const Explore: React.FC = () => {
       setRouteInfo(null);
       setFareList([]);
       
-      // 에러 상태에서 bottomSheet 높이를 430으로 설정
       Animated.spring(bottomSheetHeight, {
-        toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MAX, // 430
+        toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MAX,
         useNativeDriver: false,
       }).start();
       setIsMinimized(false);
@@ -862,13 +808,11 @@ const Explore: React.FC = () => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       
-      // 지도 중심점 좌표 업데이트
       if (data.type === "mapCenter") {
         setMapCenter({ lat: data.lat, lng: data.lng });
         return;
       }
       
-      // 지도 클릭 처리 - 지도 직접 선택 모드일 때만 동작
       if (data.type === "mapClick") {
         const clickedPoint = { lat: data.lat, lng: data.lng };
         
@@ -877,7 +821,6 @@ const Explore: React.FC = () => {
           setStartPointName("지도에서 선택한 출발지");
           setIsSelectingStart(false);
           
-          // 지도에 출발지 마커 표시
           webViewRef.current?.postMessage(JSON.stringify({
             type: "setStartMarker",
             lat: clickedPoint.lat,
@@ -890,7 +833,6 @@ const Explore: React.FC = () => {
           setEndPointName("지도에서 선택한 도착지");
           setIsSelectingEnd(false);
           
-          // 지도에 도착지 마커 표시
           webViewRef.current?.postMessage(JSON.stringify({
             type: "setEndMarker",
             lat: clickedPoint.lat,
@@ -899,16 +841,14 @@ const Explore: React.FC = () => {
           }));
         }
         
-        // 출발지와 도착지가 모두 설정되었으면 경로 탐색
         const newStartPoint = isSelectingStart ? clickedPoint : startPoint;
         const newEndPoint = isSelectingEnd ? clickedPoint : endPoint;
         
         if (newStartPoint && newEndPoint) {
           setShowSearchResults(false);
           setHasNoSearchResults(false);
-          // bottomSheet 크기를 로딩 크기로 조정한 후 경로 탐색 시작
           Animated.spring(bottomSheetHeight, {
-            toValue: BOTTOM_SHEET_HEIGHTS.LOADING, // 150 (유일하게 150)
+            toValue: BOTTOM_SHEET_HEIGHTS.LOADING,
             useNativeDriver: false,
           }).start(() => {
             drawAllRoutes(newStartPoint, newEndPoint);
@@ -917,7 +857,7 @@ const Explore: React.FC = () => {
         return;
       }
     } catch (err) {
-      // 메시지 처리 오류 무시
+      Alert.alert("오류", "문제가 발생했습니다.");
     }
   };
 
@@ -948,11 +888,10 @@ const Explore: React.FC = () => {
     setIsRideInProgress(false);
     setHasArrived(false);
     
-    // 지도에서 모든 마커와 경로 제거
     webViewRef.current?.postMessage(JSON.stringify({ type: "clearRoute" }));
     
     Animated.spring(bottomSheetHeight, {
-      toValue: BOTTOM_SHEET_HEIGHTS.INITIAL, // 80
+      toValue: BOTTOM_SHEET_HEIGHTS.INITIAL,
       useNativeDriver: false,
     }).start();
   };
@@ -963,14 +902,11 @@ const Explore: React.FC = () => {
     
     let targetHeight;
     if (showSearchResults) {
-      // 검색 결과 상태
-      targetHeight = newMinimizedState ? BOTTOM_SHEET_HEIGHTS.SEARCH_MIN : BOTTOM_SHEET_HEIGHTS.SEARCH_MAX; // 80 또는 430
+      targetHeight = newMinimizedState ? BOTTOM_SHEET_HEIGHTS.SEARCH_MIN : BOTTOM_SHEET_HEIGHTS.SEARCH_MAX;
     } else if (hasRoute) {
-      // 경로 결과 상태
-      targetHeight = newMinimizedState ? BOTTOM_SHEET_HEIGHTS.ROUTE_MIN : BOTTOM_SHEET_HEIGHTS.ROUTE_MAX; // 80 또는 430
+      targetHeight = newMinimizedState ? BOTTOM_SHEET_HEIGHTS.ROUTE_MIN : BOTTOM_SHEET_HEIGHTS.ROUTE_MAX;
     } else {
-      // 초기 상태
-      targetHeight = BOTTOM_SHEET_HEIGHTS.INITIAL; // 80
+      targetHeight = BOTTOM_SHEET_HEIGHTS.INITIAL;
     }
     
     Animated.spring(bottomSheetHeight, {
@@ -985,22 +921,18 @@ const Explore: React.FC = () => {
     return `${mins}분 ${secs}초`;
   };
 
-  // 현재 페이지의 검색 결과 가져오기
   const getCurrentPageResults = () => {
     const startIndex = currentSearchPage * 4;
     return searchResults.slice(startIndex, startIndex + 4);
   };
 
-  // 업체 선택 함수 (기존 함수들 아래에 추가)
   const selectProvider = (providerName: string) => {
     setSelectedProvider(providerName);
     setIsRideInProgress(true);
   };
 
-  // 목적지 도착 처리 함수
   const handleArrival = async () => {
     if (!selectedProvider || !routeStartTime || !routeInfo) {
-      Alert.alert("오류", "필요한 정보가 누락되었습니다.");
       return;
     }
     setHasArrived(true);
@@ -1009,7 +941,6 @@ const Explore: React.FC = () => {
     const expectedDurationMinutes = routeInfo.adjustedTimeMin;
     const timeDifferenceMinutes = Math.abs(actualDurationMinutes - expectedDurationMinutes);
 
-    // 점수 계산
     let scoreChange = 0;
     let message = "";
     
@@ -1024,7 +955,6 @@ const Explore: React.FC = () => {
       message = "다음엔 더 정확한 시간에 도착해보세요!";
     }
 
-    // 절약 금액 계산
     const maxFare = Math.max(...fareList.map(f => f.fare));
     const selectedFare = fareList.find(f => f.name === selectedProvider)?.fare || 0;
     const savedMoney = maxFare - selectedFare;
@@ -1032,11 +962,9 @@ const Explore: React.FC = () => {
     try {
       const accessToken = await SecureStore.getItemAsync("accessToken");
       if (!accessToken) {
-        Alert.alert("오류", "로그인이 필요합니다.");
         return;
       }
 
-      // API 호출들
       await apiPost("/api/v1/auth/rides/", {
         distance_km: routeInfo.distance / 1000,
         duration_seconds: actualDurationMinutes * 60,
@@ -1051,12 +979,8 @@ const Explore: React.FC = () => {
         distance_km: routeInfo.distance / 1000,
         score_delta: scoreChange
       }, accessToken);
-
-      Alert.alert("도착 완료", message, [
-        { text: "확인", onPress: () => resetRoute() }
-      ]);
     } catch (error) {
-      Alert.alert("오류", "데이터 저장 중 오류가 발생했습니다.");
+      Alert.alert("오류", "문제가 발생했습니다.");
     }
   };
   const getDynamicSavings = () => {
@@ -1073,7 +997,6 @@ const Explore: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* 상단 검색바 */}
       {showTopBars && (
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
@@ -1098,7 +1021,6 @@ const Explore: React.FC = () => {
         </View>
       )}
 
-      {/* 출발지/도착지 설정 영역 */}
       {showTopBars && (
         <View style={styles.pointSelectionContainer}>
           <View style={styles.pointSelectionBar}>
@@ -1151,10 +1073,14 @@ const Explore: React.FC = () => {
 
       <WebView
         ref={webViewRef}
-        originWhitelist={["*"]}
+        originWhitelist={['https://*']}
         source={{ html: LEAFLET_HTML }}
         onMessage={handleMessage}
         style={styles.webview}
+        onShouldStartLoadWithRequest={(request) => {
+          const allowedOrigin = request.url.startsWith('https://mobilfit.kr');
+          return allowedOrigin; // 외부 링크 차단
+        }}
       />
       
       <Animated.View 
@@ -1163,7 +1089,6 @@ const Explore: React.FC = () => {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* 검색 결과 표시 */}
         {showSearchResults ? (
           <Animated.View 
             style={[
@@ -1250,7 +1175,6 @@ const Explore: React.FC = () => {
             </View>
           </Animated.View>
         ) : (
-          /* 기존 경로 정보 표시 */
           <Animated.View 
             style={[
               styles.bottomSheetContent,
@@ -1780,7 +1704,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
   },
-  // 검색 결과 없음 스타일 추가
   noResultsContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -2239,7 +2162,6 @@ const styles = StyleSheet.create({
   errorState: {
     flex: 1,
   },
-  // 에러 아이콘 스타일 추가
   errorIcon: {
     marginBottom: 16,
   },
@@ -2254,7 +2176,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
-  // 에러 서브텍스트 스타일 추가
   errorSubText: {
     fontSize: 14,
     color: '#999',

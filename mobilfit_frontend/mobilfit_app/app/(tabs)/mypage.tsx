@@ -22,18 +22,13 @@ export default function MyPageScreen() {
       const accessToken = await SecureStore.getItemAsync("accessToken");
       if (!accessToken) return;
 
-      // 사용자 기본 정보 (닉네임)
       const meRes = await apiGet("/api/v1/auth/me/", accessToken);
-      console.log("🌟 /me/ 응답:", meRes);
       setUserInfo(meRes?.data?.result || meRes?.data || {});
 
-      // 마이페이지 데이터 (마지막 사용 시간)
       const myPageRes = await apiGet("/api/v1/auth/user/mypage/", accessToken);
-      console.log("🌟 /mypage/ 응답:", myPageRes);
       setMyPageData(myPageRes?.data?.result || myPageRes?.data || {});
 
     } catch (error) {
-      console.log("사용자 정보 로드 실패:", error);
       setUserInfo({});
       setMyPageData({});
     } finally {
@@ -163,7 +158,6 @@ export default function MyPageScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      {/* Header with 닉네임 */}
       <LinearGradient
         colors={['#52C41A', '#73D13D']}
         style={styles.header}
@@ -180,7 +174,6 @@ export default function MyPageScreen() {
         </View>
       </LinearGradient>
 
-      {/* 앱 사용 정보 */}
       <View style={styles.infoContainer}>
         <View style={styles.sectionTitleContainer}>
           <View style={[styles.sectionIconContainer, { backgroundColor: '#F6FFED' }]}>
@@ -215,7 +208,6 @@ export default function MyPageScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 고객 지원 */}
       <View style={styles.menuContainer}>
         <View style={styles.sectionTitleContainer}>
           <View style={[styles.sectionIconContainer, { backgroundColor: '#E6F7FF' }]}>
@@ -256,7 +248,6 @@ export default function MyPageScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 계정 관리 */}
       <View style={styles.menuContainer}>
         <View style={styles.sectionTitleContainer}>
           <View style={[styles.sectionIconContainer, { backgroundColor: '#FFF7E6' }]}>
@@ -297,7 +288,6 @@ export default function MyPageScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Logout Button */}
       <View style={styles.logoutContainer}>
         <TouchableOpacity
           onPress={handleLogout}

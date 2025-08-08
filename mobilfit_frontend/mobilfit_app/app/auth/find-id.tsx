@@ -29,7 +29,6 @@ export default function FindIdScreen() {
       'keyboardDidHide',
       () => {
         setKeyboardVisible(false);
-        // 키보드가 닫힐 때 스크롤을 맨 위로 이동
         if (scrollViewRef.current) {
           scrollViewRef.current.scrollTo({ y: 0, animated: true });
         }
@@ -96,7 +95,6 @@ export default function FindIdScreen() {
           scrollEnabled={keyboardVisible}
         >
           <View style={styles.container}>
-            {/* Header Section */}
             <View style={styles.headerSection}>
               <TouchableOpacity 
                 onPress={() => router.back()}
@@ -120,12 +118,10 @@ export default function FindIdScreen() {
               </View>
             </View>
 
-            {/* Form Section */}
             <View style={styles.formSection}>
               <View style={styles.formContainer}>
                 
                 {foundUsername ? (
-                  /* Success View */
                   <View style={styles.successContainer}>
                     <View style={styles.successIconContainer}>
                       <Ionicons name="checkmark-circle" size={60} color="#52C41A" />
@@ -157,9 +153,7 @@ export default function FindIdScreen() {
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  /* Find ID Form */
                   <>
-                    {/* Email Input */}
                     <View style={styles.inputGroup}>
                       <TouchableOpacity 
                         style={[
@@ -204,7 +198,6 @@ export default function FindIdScreen() {
                       )}
                     </View>
 
-                    {/* Find ID Button */}
                     <TouchableOpacity
                       onPress={handleFindId}
                       disabled={loading || !isFormValid}
@@ -240,7 +233,6 @@ export default function FindIdScreen() {
                   </>
                 )}
 
-                {/* Divider */}
                 {!foundUsername && (
                   <View style={styles.dividerContainer}>
                     <View style={styles.dividerLine} />
@@ -249,7 +241,6 @@ export default function FindIdScreen() {
                   </View>
                 )}
 
-                {/* Link Buttons */}
                 {!foundUsername && (
                   <View style={styles.linkButtonsContainer}>
                     <TouchableOpacity

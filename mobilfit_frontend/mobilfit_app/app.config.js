@@ -5,6 +5,7 @@ export default {
     scheme: 'mobilfit',
     version: '1.0.0',
     orientation: 'portrait',
+    userInterfaceStyle: 'light',
     icon: './assets/images/icon.png',
     splash: {
       image: './assets/images/splash.png',

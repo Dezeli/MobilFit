@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, ActivityIndicator, RefreshControl } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { Redirect } from "expo-router";
 import { apiGet } from "../../lib/api";
@@ -57,61 +57,40 @@ export default function RankingScreen() {
     try {
       const accessToken = await SecureStore.getItemAsync("accessToken");
       if (!accessToken) {
-        console.log("❌ 액세스 토큰이 없습니다");
         return;
       }
 
-      console.log("🌟 랭킹 API 호출 시작 - period:", selectedPeriod);
-
-      // 사용자 정보 가져오기
       try {
         const meRes = await apiGet("/api/v1/auth/me/", accessToken);
-        console.log("🌟 /me/ 응답:", meRes);
         setUserInfo(meRes?.data?.result || meRes?.data || {});
       } catch (error) {
-        console.log("사용자 정보 로드 실패:", error);
         setUserInfo({});
       }
 
-      // 마이페이지 데이터 (내 실제 값들)
       try {
         const myPageRes = await apiGet("/api/v1/auth/user/mypage/", accessToken);
-        console.log("🌟 /mypage/ 응답:", myPageRes);
         setMyData(myPageRes?.data?.result || myPageRes?.data || {});
       } catch (error) {
-        console.log("마이페이지 데이터 로드 실패:", error);
         setMyData({});
       }
 
-      // 전체 랭킹 Top10 데이터
       try {
         const rankingRes = await apiGet(`/api/v1/auth/rankings/?period=${selectedPeriod}`, accessToken);
-        console.log("🌟 전체 랭킹 응답:", rankingRes);
-        console.log("🌟 전체 랭킹 데이터:", rankingRes?.data);
         const rankingResult = rankingRes?.data?.result || rankingRes?.data || {};
-        console.log("🌟 파싱된 랭킹 데이터:", rankingResult);
         setRankingData(rankingResult);
       } catch (rankingError) {
-        console.log("❌ 전체 랭킹 API 호출 실패:", rankingError);
-        console.log("❌ 에러 상세:", rankingError.message);
         setRankingData({});
       }
 
-      // 내 순위 데이터
       try {
         const myRankRes = await apiGet(`/api/v1/auth/me/rank/?period=${selectedPeriod}`, accessToken);
-        console.log("🌟 내 순위 응답:", myRankRes);
         setMyRank(myRankRes?.data?.result || myRankRes?.data || {});
       } catch (myRankError) {
-        console.log("❌ 내 순위 API 호출 실패:", myRankError);
-        console.log("❌ 에러 상세:", myRankError.message);
         setMyRank({});
       }
 
     } catch (error) {
-      console.log("❌ 랭킹 데이터 로드 실패:", error);
-      console.log("❌ 에러 상세:", error.message);
-      Alert.alert("오류", `랭킹 데이터를 불러오는데 실패했습니다.\n${error.message}`);
+      setMyRank({});
     } finally {
       setDataLoading(false);
     }
@@ -179,7 +158,6 @@ export default function RankingScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      {/* Header */}
       <LinearGradient
         colors={['#4CAF50', '#66BB6A']}
         style={styles.welcomeHeader}
@@ -194,7 +172,6 @@ export default function RankingScreen() {
         </View>
       </LinearGradient>
 
-      {/* Period Selection */}
       <View style={styles.selectionContainer}>
         <View style={styles.periodSection}>
           <Text style={[styles.sectionTitle, {marginBottom:15}]}>기간 선택</Text>
@@ -225,13 +202,10 @@ export default function RankingScreen() {
         </View>
       </View>
 
-      {/* Ranking List */}
       {rankingData && currentRankingType && (
         <View style={styles.rankingContainer}>
-          {/* 랭킹 제목과 네비게이션 */}
           <View style={styles.rankingHeaderContainer}>
             <View style={styles.rankingTitleContainer}>
-              {/* 왼쪽 화살표 */}
               <TouchableOpacity
                 onPress={() => changeRankingType('left')}
                 style={[
@@ -247,12 +221,10 @@ export default function RankingScreen() {
                 />
               </TouchableOpacity>
 
-              {/* 제목 */}
               <View style={styles.titleWrapper}>
                 <Text style={styles.sectionTitle}>{currentRankingType.label} 순위</Text>
               </View>
 
-              {/* 오른쪽 화살표 */}
               <TouchableOpacity
                 onPress={() => changeRankingType('right')}
                 style={[
@@ -269,7 +241,6 @@ export default function RankingScreen() {
               </TouchableOpacity>
             </View>
             
-            {/* 도트 인디케이터 */}
             <View style={styles.dotsContainer}>
               {rankingTypes.map((_, index) => (
                 <TouchableOpacity
@@ -293,12 +264,10 @@ export default function RankingScreen() {
           <View style={styles.rankingCard}>
             {(() => {
               const categoryData = rankingData[currentRankingType.key];
-              console.log(`🌟 ${currentRankingType.key} 카테고리 데이터:`, categoryData);
               
               if (Array.isArray(categoryData) && categoryData.length > 0) {
                 return (
                   <>
-                    {/* Top 10 랭킹 표시 */}
                     {categoryData.map((item: any, index: number) => (
                       <View 
                         key={index} 
@@ -324,7 +293,6 @@ export default function RankingScreen() {
                       </View>
                     ))}
 
-                    {/* 내 순위를 항상 맨 밑에 표시 */}
                     {myCurrentRank && (
                       <>
                         <View style={styles.rankingSeparator} />
@@ -355,7 +323,6 @@ export default function RankingScreen() {
                         : "이 기간에는 랭킹 데이터가 없습니다"
                       }
                     </Text>
-                    {/* 데이터가 없어도 내 순위가 있으면 표시 */}
                     {myCurrentRank && (
                       <>
                         <View style={styles.rankingSeparator} />

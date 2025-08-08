@@ -34,7 +34,7 @@ export default function FeedbackScreen() {
         }
       ]);
     } catch (error: any) {
-      Alert.alert("오류", error.message || "피드백 전송에 실패했습니다.");
+      Alert.alert("오류", "피드백 전송에 실패했습니다.");
     } finally {
       setSendingFeedback(false);
     }
@@ -57,7 +57,6 @@ export default function FeedbackScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => router.back()}
@@ -84,7 +83,6 @@ export default function FeedbackScreen() {
           contentContainerStyle={styles.scrollContent}
         >
 
-          {/* 안내 메시지 */}
           <View style={styles.introContainer}>
             <Text style={styles.introText}>
               이런 피드백을 기다려요 !
@@ -121,7 +119,6 @@ export default function FeedbackScreen() {
             </View>
           </View>
 
-          {/* 피드백 입력 영역 */}
           <View style={styles.contentContainer}>
             <View style={styles.inputSection}>
               <Text style={styles.inputLabel}>피드백 내용</Text>
@@ -148,7 +145,6 @@ export default function FeedbackScreen() {
               </View>
             </View>
 
-            {/* 피드백 전송 버튼 */}
             <View style={styles.buttonSection}>
               <TouchableOpacity
                 onPress={handleSendFeedback}

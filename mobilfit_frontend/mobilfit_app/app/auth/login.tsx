@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, Dimensions, StatusBar, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Keyboard } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, StatusBar, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Keyboard } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { Redirect, useRouter } from "expo-router";
 import { apiPost, apiGet } from "../../lib/api";
@@ -34,7 +34,6 @@ export default function LoginScreen() {
       'keyboardDidHide',
       () => {
         setKeyboardVisible(false);
-        // 키보드가 닫힐 때 스크롤을 맨 위로 이동
         if (scrollViewRef.current) {
           scrollViewRef.current.scrollTo({ y: 0, animated: true });
         }
@@ -61,7 +60,6 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      // 로그인
       const res = await apiPost("/api/v1/auth/login/", {
         username: loginId,
         password,
@@ -73,11 +71,9 @@ export default function LoginScreen() {
       await SecureStore.setItemAsync("accessToken", accessToken);
       await SecureStore.setItemAsync("refreshToken", refreshToken);
 
-      // 유저 정보
       const userInfo = await apiGet("/api/v1/auth/me/", accessToken);
       setUser(userInfo);
 
-      // 🔁 반드시 (tabs)로 이동!
       router.replace("/(tabs)");
     } catch (error: any) {
       setLoginError(error.message || "로그인에 실패했습니다.");
@@ -109,7 +105,6 @@ export default function LoginScreen() {
           scrollEnabled={keyboardVisible}
         >
           <View style={styles.container}>
-            {/* Header Section */}
             <View style={styles.headerSection}>
               <View style={styles.logoContainer}>
                 <Image 
@@ -120,11 +115,9 @@ export default function LoginScreen() {
               </View>
             </View>
 
-            {/* Form Section */}
             <View style={styles.formSection}>
               <View style={styles.formContainer}>
                 
-                {/* ID Input */}
                 <View style={styles.inputGroup}>
                   <TouchableOpacity 
                     style={[
@@ -161,7 +154,6 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Password Input */}
                 <View style={styles.inputGroup}>
                   <TouchableOpacity 
                     style={[
@@ -212,7 +204,6 @@ export default function LoginScreen() {
                     <Text style={styles.errorText}>{loginError}</Text>
                   )}
                 </View>
-                {/* Login Button */}
                 <TouchableOpacity
                   onPress={handleLogin}
                   disabled={loading || !isFormValid}
@@ -246,14 +237,12 @@ export default function LoginScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
 
-                {/* Divider */}
                 <View style={styles.dividerContainer}>
                   <View style={styles.dividerLine} />
                   <Text style={styles.dividerText}>또는</Text>
                   <View style={styles.dividerLine} />
                 </View>
 
-                {/* Link Buttons */}
                 <View style={styles.linkButtonsContainer}>
                   <TouchableOpacity
                     onPress={() => router.push("/auth/signup")}

@@ -33,7 +33,6 @@ export default function ResetPasswordScreen() {
       'keyboardDidHide',
       () => {
         setKeyboardVisible(false);
-        // 키보드가 닫힐 때 스크롤을 맨 위로 이동
         if (scrollViewRef.current) {
           scrollViewRef.current.scrollTo({ y: 0, animated: true });
         }
@@ -124,7 +123,6 @@ export default function ResetPasswordScreen() {
           scrollEnabled={keyboardVisible}
         >
           <View style={styles.container}>
-            {/* Header Section */}
             <View style={styles.headerSection}>
               <TouchableOpacity 
                 onPress={() => router.back()}
@@ -148,12 +146,10 @@ export default function ResetPasswordScreen() {
               </View>
             </View>
 
-            {/* Form Section */}
             <View style={styles.formSection}>
               <View style={styles.formContainer}>
                 
                 {successMessage ? (
-                  /* Success View */
                   <View style={styles.successContainer}>
                     <View style={styles.successIconContainer}>
                       <Ionicons name="mail" size={60} color="#52C41A" />
@@ -186,9 +182,7 @@ export default function ResetPasswordScreen() {
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  /* Reset Password Form */
                   <>
-                    {/* Username Input */}
                     <View style={styles.inputGroup}>
                       <TouchableOpacity 
                         style={[
@@ -225,7 +219,6 @@ export default function ResetPasswordScreen() {
                       </TouchableOpacity>
                     </View>
 
-                    {/* Email Input */}
                     <View style={styles.inputGroup}>
                       <TouchableOpacity 
                         style={[
@@ -263,7 +256,6 @@ export default function ResetPasswordScreen() {
                       </TouchableOpacity>
                     </View>
 
-                    {/* Name Input */}
                     <View style={styles.inputGroup}>
                       <TouchableOpacity 
                         style={[
@@ -304,7 +296,6 @@ export default function ResetPasswordScreen() {
                       )}
                     </View>
 
-                    {/* Reset Password Button */}
                     <TouchableOpacity
                       onPress={handleResetPassword}
                       disabled={loading || !isFormValid}
@@ -340,7 +331,6 @@ export default function ResetPasswordScreen() {
                   </>
                 )}
 
-                {/* Divider */}
                 {!successMessage && (
                   <View style={styles.dividerContainer}>
                     <View style={styles.dividerLine} />
@@ -349,7 +339,6 @@ export default function ResetPasswordScreen() {
                   </View>
                 )}
 
-                {/* Link Buttons */}
                 {!successMessage && (
                   <View style={styles.linkButtonsContainer}>
                     <TouchableOpacity

@@ -21,19 +21,16 @@ export default function RideLogsScreen() {
       const accessToken = await SecureStore.getItemAsync("accessToken");
       if (!accessToken) return;
 
-      // 주행 기록 리스트 가져오기
       try {
         const logsRes = await apiGet("/api/v1/auth/rides/list/", accessToken);
-        console.log("🌟 주행 기록 응답:", logsRes);
         const logs = logsRes?.data?.result || logsRes?.data || [];
         setRideLogs(logs);
       } catch (error) {
-        console.log("❌ 주행 기록 API 호출 실패:", error);
         setRideLogs([]);
       }
 
     } catch (error) {
-      console.log("❌ 주행 기록 로드 실패:", error);
+      setDataLoading(false);
     } finally {
       setDataLoading(false);
     }
@@ -86,7 +83,6 @@ export default function RideLogsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => router.back()}
@@ -111,14 +107,12 @@ export default function RideLogsScreen() {
         contentContainerStyle={styles.scrollContent}
       >
 
-        {/* 통계 정보 */}
         <View style={styles.introContainer}>
           <Text style={styles.introText}>
             총 {rideLogs.length}회의 주행 기록이 있습니다.
           </Text>
         </View>
 
-        {/* 주행 기록 목록 */}
         <View style={styles.contentContainer}>
           {rideLogs.length === 0 ? (
             <View style={styles.noDataContainer}>

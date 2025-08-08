@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, ScrollView, StyleSheet, Dimensions, Alert, Image, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, ScrollView, StyleSheet, Dimensions, Image, ActivityIndicator, RefreshControl } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { Redirect } from "expo-router";
 import { apiGet, API_BASE_URL } from "../../lib/api";
@@ -31,49 +31,37 @@ export default function HomeScreen() {
         return;
       }
 
-      // 공지사항 가져오기 (인증 불필요)
       try {
         const noticeRes = await fetch(`${API_BASE_URL}/api/v1/auth/notices/`);
         const noticeData = await noticeRes.json();
-        console.log("🌟 공지사항 응답:", noticeData);
         setNotices(noticeData?.data?.result || noticeData?.data || []);
       } catch (error) {
-        console.log("공지사항 로드 실패:", error);
         setNotices([]);
       }
 
-      // 사용자 기본 정보 (닉네임)
       try {
         const meRes = await apiGet("/api/v1/auth/me/", accessToken);
-        console.log("🌟 /me/ 응답:", meRes);
         setUserInfo(meRes?.data?.result || meRes?.data || {});
       } catch (error) {
-        console.log("사용자 정보 로드 실패:", error);
         setUserInfo({});
       }
 
-      // 사용자 등급 정보 (플래티넘/골드/실버/브론즈)
       try {
         const gradeRes = await apiGet("/api/v1/auth/me/grade/", accessToken);
-        console.log("🌟 /grade/ 응답:", gradeRes);
         setUserGrade(gradeRes?.data?.result || gradeRes?.data || {});
       } catch (error) {
-        console.log("등급 정보 로드 실패:", error);
         setUserGrade({});
       }
 
-      // 마이페이지 데이터 (주행 점수, 절약 금액, 주행 거리, 앱 사용 횟수)
       try {
         const myPageRes = await apiGet("/api/v1/auth/user/mypage/", accessToken);
-        console.log("🌟 /mypage/ 응답:", myPageRes);
         setMyPageData(myPageRes?.data?.result || myPageRes?.data || {});
       } catch (error) {
-        console.log("마이페이지 데이터 로드 실패:", error);
         setMyPageData({});
       }
 
     } catch (error) {
-      console.log("데이터 로드 실패:", error);
+      setDataLoading(false);
     } finally {
       setDataLoading(false);
     }
@@ -89,26 +77,24 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  // 날짜 포맷 변환 함수
   const formatNoticeDate = (dateString: string) => {
     if (!dateString) return '';
     
     try {
-      // 2025-08-03 05:58 형태를 25년 08월 03일 05시 58분으로 변환
       const parts = dateString.split(' ');
-      if (parts.length !== 2) return dateString; // 원본 반환
+      if (parts.length !== 2) return dateString;
       
-      const datePart = parts[0]; // 2025-08-03
-      const timePart = parts[1]; // 05:58
+      const datePart = parts[0];
+      const timePart = parts[1];
       
       const [year, month, day] = datePart.split('-');
       const [hour, minute] = timePart.split(':');
       
-      const shortYear = year; // 뒤의 2자리만
+      const shortYear = year;
       
       return `${shortYear}-${month}-${day}  ${hour}:${minute}`;
     } catch (error) {
-      return dateString; // 오류 시 원본 반환
+      return dateString;
     }
   };
 
@@ -130,18 +116,15 @@ export default function HomeScreen() {
     return <Redirect href="/auth/login" />;
   }
 
-  // 환경 기여도 / 경제적 시각화 계산
   const getEnvironmentData = () => {
     if (!myPageData) return { co2Saved: 0, treeEquivalent: 0, coffeeCount: 0 };
     
     const totalDistance = myPageData.total_distance_km || 0;
     const totalSaving = myPageData.total_saved_money || 0;
-    console.log("🌟 토탈:", myPageData);
-    console.log("🌟 토탈:", totalDistance, totalSaving);
-    // 환경 지표 계산
-    const co2Saved = Math.round(totalDistance * 0.21); // 1km당 0.21kg CO2 절감
-    const treeEquivalent = Math.floor(co2Saved / 22); // 나무 1그루당 22kg CO2 흡수
-    const coffeeCount = Math.floor(totalSaving / 5000); // 커피 1잔 5000원
+
+    const co2Saved = Math.round(totalDistance * 0.21);
+    const treeEquivalent = Math.floor(co2Saved / 22);
+    const coffeeCount = Math.floor(totalSaving / 5000);
     
     return { co2Saved, treeEquivalent, coffeeCount };
   };
@@ -155,9 +138,9 @@ export default function HomeScreen() {
     iconName: string
   ) => {
     const totalIcons = 5;
-    const progress = Math.min(current / unit, totalIcons); // ex: 3 / 2 = 1.5
-    const fullCount = Math.floor(progress);   // 정수 부분 (1)
-    const hasHalf = progress % 1 >= 0.5;      // 반 채울지 여부
+    const progress = Math.min(current / unit, totalIcons);
+    const fullCount = Math.floor(progress);
+    const hasHalf = progress % 1 >= 0.5;
 
     const FULL_COLOR = '#2E7D32';
     const HALF_COLOR = '#A5D6A7';
@@ -192,7 +175,6 @@ export default function HomeScreen() {
     );
   };
 
-  // 등급별 이모티콘 함수
   const getGradeEmoji = (grade: string) => {
     switch(grade?.toLowerCase()) {
       case '플래티넘': return '💎';
@@ -202,7 +184,6 @@ export default function HomeScreen() {
       default: return '🥉';
     }
   };
-  // 한국어 금액 변환 함수 (가장 큰 단위만)
   const formatKoreanAmount = (amount: number) => {
     if (amount >= 10000) {
       const man = Math.floor(amount / 10000);
@@ -222,7 +203,6 @@ export default function HomeScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      {/* Welcome Header with 닉네임 and 내 등급 */}
       <LinearGradient
         colors={['#4CAF50', '#66BB6A']}
         style={styles.welcomeHeader}
@@ -242,7 +222,6 @@ export default function HomeScreen() {
         </View>
       </LinearGradient>
 
-      {/* 공지사항 */}
       {notices.length > 0 && (
         <View style={styles.noticeContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.noticeScrollContainer}>
@@ -269,7 +248,6 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* 핵심 지표 4개: 주행 점수, 누적 절약 금액, 누적 주행 거리, 앱 사용 횟수 */}
       <View style={styles.statsContainer}>
         <Text style={styles.sectionTitle}>나의 라이딩 현황</Text>
         <View style={styles.statsGrid}>
@@ -319,7 +297,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* 나의 친환경 기록 */}
       <View style={styles.environmentContainer}>
         <Text style={styles.sectionTitle}>나의 친환경 기록</Text>
         <View style={styles.environmentGrid}>

@@ -44,12 +44,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const res = await apiGet("/api/v1/auth/me/", accessToken);
         setUser(res.data.result);
       } catch (err) {
-        console.log("자동 로그인 실패:", err);
-
         try {
-          // accessToken 실패 → refresh 시도
           const refreshToken = await getRefreshToken();
-          if (!refreshToken) throw new Error("No refresh token");
+          if (!refreshToken) throw new Error("로그인 세션이 만료되었습니다.");
 
           const newAccessToken = await refreshAccessToken(refreshToken);
           await saveTokens(newAccessToken, refreshToken);
@@ -57,7 +54,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const res = await apiGet("/api/v1/auth/me/", newAccessToken);
           setUser(res.data.result);
         } catch (e) {
-          console.log("refresh 실패:", e);
           await deleteTokens();
           setUser(null);
         }
