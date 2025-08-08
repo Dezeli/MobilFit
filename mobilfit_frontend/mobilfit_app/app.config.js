@@ -13,7 +13,7 @@ export default {
       backgroundColor: '#ffffff',
     },
     ios: {
-      supportsTablet: true,
+      supportsTablet: false,
       buildNumber: '1',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
