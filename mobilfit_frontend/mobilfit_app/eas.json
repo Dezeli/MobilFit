@@ -12,13 +12,6 @@
     "production": {
       "android": {
         "buildType": "app-bundle",
-        "ndk": {
-          "version": "23.1.7779620"
-        },
-        "cmake": {
-          "version": "3.22.1"
-        },
-        "buildToolsVersion": "34.0.0"
       }
     }
   }
