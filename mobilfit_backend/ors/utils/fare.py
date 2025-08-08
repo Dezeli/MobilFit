@@ -8,7 +8,7 @@ def calculate_bike_fares(adjusted_time_min: float, distance_km: float) -> list[d
         { "name": "쏘카", "base": 600, "perMin": 150, "perKm": 0 },
         { "name": "지쿠(시간제)", "base": 600, "perMin": 180, "perKm": 0 },
         { "name": "티맵", "base": 1000, "perMin": 130, "perKm": 0 },
-        { "name": "지쿠(거리제)", "base": 0, "perMin": 30, "perKm": 600 },
+        { "name": "지쿠(거리제)", "base": 600, "perMin": 30, "perKm": 600 },
     ]
 
     fare_list = []
