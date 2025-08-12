@@ -1,0 +1,42 @@
+<!-- templates/account_deletion_done.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Mobilfit</title>
+  {% load static %}
+  <link rel="icon" href="{% static 'images/icon.png' %}" type="image/png">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: 'system-ui', sans-serif;
+      background-color: #FAFAFA;
+      padding: 20px;
+      max-width: 720px;
+      margin: auto;
+      text-align: center;
+    }
+    h1 {
+      color: #2C3E50;
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      color: #555;
+      margin-bottom: 24px;
+    }
+    a {
+      text-decoration: none;
+      color: #52C41A;
+      font-weight: 600;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>요청이 접수되었습니다</h1>
+  <p>계정 삭제 요청을 성공적으로 접수했습니다.<br>최대한 빠르게 확인 후 안내드릴게요.</p>
+  <a href="/">홈으로 돌아가기</a>
+</body>
+</html>
