@@ -9,10 +9,10 @@ ORS_API_KEY = config("ORS_API_KEY")
 
 def get_full_route_data(start: dict, end: dict) -> dict:
     route_configs = [
-        # cycling-regular
-        {"profile": "cycling-regular", "preference": "recommended"},
-        {"profile": "cycling-regular", "preference": "fastest"}, 
-        {"profile": "cycling-regular", "preference": "shortest"},
+        # cycling-electric
+        {"profile": "cycling-electric", "preference": "recommended"},
+        {"profile": "cycling-electric", "preference": "fastest"}, 
+        {"profile": "cycling-electric", "preference": "shortest"},
     ]
     
     raw_routes = {}
