@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "kr.mobilfit.app",
+      "sha256_cert_fingerprints": [
+        "FF:90:C3:E0:B9:0A:15:3E:2B:FD:27:ED:A1:76:D3:4A:1F:C2:C6:06:E7:39:1D:CB:3C:9B:D2:D0:7F:EC:4A:56"
+      ]
+    }
+  }
+]
