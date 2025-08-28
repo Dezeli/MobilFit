@@ -14,14 +14,14 @@ export default {
     },
     ios: {
       supportsTablet: false,
-      buildNumber: '2',
+      buildNumber: '3',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           '정확한 경로 추천을 위해 사용자의 위치 정보가 필요합니다.',
       },
     },
     android: {
-      versionCode: 2,
+      versionCode: 3,
       package: 'kr.mobilfit.app',
       permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
       config: {
