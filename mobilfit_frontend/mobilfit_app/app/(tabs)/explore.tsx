@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, GestureResponderEvent, Image, Alert, Platform, TextInput, Keyboard } from "react-native";
+import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, GestureResponderEvent, Image, Alert, Platform, TextInput, Keyboard, ActivityIndicator } from "react-native";
+import * as Location from "expo-location";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { apiPost, apiGet } from "../../lib/api";
 import * as SecureStore from "expo-secure-store";
@@ -49,12 +50,20 @@ const LEAFLET_HTML = `
 
     let startMarker = null;
     let endMarker = null;
+    let userLocationMarker = null;
     let polylineGroup = L.layerGroup().addTo(map);
     let crossingGroup = L.layerGroup().addTo(map);
     let isSearchingRoute = false;
     let isRouteFixed = false;
     let chunkedCoords = [];
     let chunkedWaytypes = [];
+
+    const userLocationIcon = L.divIcon({
+      className: 'user-location-marker',
+      html: '<div style="width:16px;height:16px;background:#FF4444;border:3px solid white;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>',
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
 
     const startIcon = L.icon({
       iconUrl: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAyNSA0MSc+PHBhdGggZmlsbD0nIzRDQUY1MCcgc3Ryb2tlPScjZmZmZmZmJyBzdHJva2Utd2lkdGg9JzInIGQ9J00xMi41LDBDNS41OTYsMCwwLDUuNTk2LDAsMTIuNWMwLDEyLjUsMTIuNSwyOC41LDEyLjUsMjguNXMxMi41LTE2LDEyLjUtMjguNUMyNSw1LjU5NiwxOS40MDQsMCwxMi41LDB6Jy8+PGNpcmNsZSBmaWxsPScjZmZmZmZmJyBjeD0nMTIuNScgY3k9JzEyLjUnIHI9JzYnLz48L3N2Zz4=',
@@ -170,6 +179,13 @@ const LEAFLET_HTML = `
           chunkedWaytypes = [];
         } else if (data.type === "setSearching") {
           isSearchingRoute = data.value;
+        } else if (data.type === "moveToLocation") {
+          map.setView([data.lat, data.lng], data.zoom || 16);
+          if (userLocationMarker) {
+            userLocationMarker.setLatLng([data.lat, data.lng]);
+          } else {
+            userLocationMarker = L.marker([data.lat, data.lng], { icon: userLocationIcon }).addTo(map);
+          }
         }
       } catch (e) {
         Alert.alert("오류", "문제가 발생했습니다.");
@@ -263,7 +279,10 @@ const Explore: React.FC = () => {
   const [routeError, setRouteError] = useState<string>("");
   
   const [hasNoSearchResults, setHasNoSearchResults] = useState(false);
-  
+
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [isLocating, setIsLocating] = useState(false);
+
   const BOTTOM_SHEET_HEIGHTS = {
     INITIAL: 80,
     LOADING: 150,
@@ -861,6 +880,35 @@ const Explore: React.FC = () => {
     }
   };
 
+  const getCurrentLocation = async () => {
+    setIsLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('권한 필요', '위치 권한이 필요합니다.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      const { latitude, longitude } = location.coords;
+      setUserLocation({ lat: latitude, lng: longitude });
+
+      webViewRef.current?.postMessage(JSON.stringify({
+        type: 'moveToLocation',
+        lat: latitude,
+        lng: longitude,
+        zoom: 16
+      }));
+    } catch (error) {
+      Alert.alert('오류', '현재 위치를 가져올 수 없습니다.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   const resetRoute = () => {
     setStartPoint(null);
     setEndPoint(null);
@@ -1073,16 +1121,33 @@ const Explore: React.FC = () => {
 
       <WebView
         ref={webViewRef}
-        originWhitelist={['https://*']}
+        originWhitelist={['*']}
         source={{ html: LEAFLET_HTML }}
         onMessage={handleMessage}
         style={styles.webview}
-        onShouldStartLoadWithRequest={(request) => {
-          const allowedOrigin = request.url.startsWith('https://mobilfit.kr');
-          return allowedOrigin; // 외부 링크 차단
-        }}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        allowFileAccess={true}
+        mixedContentMode="always"
       />
-      
+
+      <TouchableOpacity
+        style={styles.myLocationButton}
+        onPress={getCurrentLocation}
+        disabled={isLocating}
+      >
+        {isLocating ? (
+          <ActivityIndicator size="small" color="#4CAF50" />
+        ) : (
+          <View style={styles.myLocationIcon}>
+            <View style={styles.myLocationIconOuter} />
+            <View style={styles.myLocationIconInner} />
+            <View style={styles.myLocationIconCrossH} />
+            <View style={styles.myLocationIconCrossV} />
+          </View>
+        )}
+      </TouchableOpacity>
+
       <Animated.View 
         style={[styles.bottomSheet, { height: bottomSheetHeight }]}
         onTouchStart={handleTouchStart}
@@ -2216,6 +2281,56 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
     textAlign: 'center',
+  },
+  myLocationButton: {
+    position: 'absolute',
+    bottom: 100,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 100,
+  },
+  myLocationIcon: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  myLocationIconOuter: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#4CAF50',
+  },
+  myLocationIconInner: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+  },
+  myLocationIconCrossH: {
+    position: 'absolute',
+    width: 24,
+    height: 2,
+    backgroundColor: '#4CAF50',
+  },
+  myLocationIconCrossV: {
+    position: 'absolute',
+    width: 2,
+    height: 24,
+    backgroundColor: '#4CAF50',
   },
 });
 
