@@ -3,31 +3,43 @@ from geopy.distance import geodesic
 from typing import List
 
 def get_crossings_from_overpass(bbox: list[float]) -> list[dict]:
-    """
-    BBox 기반으로 OSM Overpass API에서 crossing 노드 가져오기
-    bbox: [min_lat, min_lng, max_lat, max_lng]
-    """
     south, west, north, east = bbox
+    
     query = f"""
-    [out:json];
+    [out:json][timeout:25];
     (
-      node["highway"="crossing"]({south},{west},{north},{east});
+        node["highway"="crossing"]({south},{west},{north},{east});
     );
     out body;
     """
 
-    try:
-        res = requests.post(
-            "https://overpass-api.de/api/interpreter",
-            headers={"Content-Type": "text/plain"},
-            data=query
-        )
-        res.raise_for_status()
-        data = res.json()
-        return [{"lat": e["lat"], "lng": e["lon"]} for e in data.get("elements", [])]
-    except Exception as e:
-        print(f"[Overpass API 오류] {e}")
-        return []
+    endpoints = [
+        "https://lz4.overpass-api.de/api/interpreter",
+        "https://z.overpass-api.de/api/interpreter",
+        "https://overpass-api.de/api/interpreter"
+    ]
+
+    for url in endpoints:
+        try:
+            res = requests.post(
+                url,
+                headers={
+                    "Content-Type": "text/plain",
+                    "User-Agent": "Mobilfit_App/1.0" # 이름표를 달아줘야 차단율이 낮아져
+                },
+                data=query,
+                timeout=30 
+            )
+            res.raise_for_status()
+            data = res.json()
+            return [{"lat": e["lat"], "lng": e["lon"]} for e in data.get("elements", [])]
+            
+        except requests.exceptions.RequestException as e:
+            print(f"[Overpass 서버 시도 실패: {url}] {e}")
+            continue
+            
+    print("[Overpass API 최종 오류] 모든 서버가 응답하지 않습니다.")
+    return []
 
 
 def filter_crossings_near_route(crossings: List[dict], coords: List[list], threshold: float = 5) -> List[dict]:
