@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, StatusBar, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Keyboard } from "react-native";
+import { useState, useRef, useEffect } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, StatusBar, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Keyboard, Animated, Easing } from "react-native";
 import { useRouter } from "expo-router";
 import { apiPost } from "../../lib/api";
+import { validateEmail } from "../../lib/utils";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect } from "react";
 
 const { width, height } = Dimensions.get('window');
 
@@ -26,6 +26,22 @@ export default function SignupScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const spinValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (loading || sending || verifying) {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.setValue(0);
+    }
+  }, [loading, sending, verifying]);
   const [allTermsAgreed, setAllTermsAgreed] = useState(false);
 
   const [emailFocused, setEmailFocused] = useState(false);
@@ -61,11 +77,6 @@ export default function SignupScreen() {
       keyboardDidShowListener?.remove();
     };
   }, []);
-
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
 
   const validateUsername = (username) => {
     return username.trim().length >= 3;
@@ -326,7 +337,7 @@ export default function SignupScreen() {
                         >
                           {sending ? (
                             <View style={styles.loadingContainer}>
-                              <View style={styles.loadingSpinner} />
+                              <Animated.View style={[styles.loadingSpinner, { transform: [{ rotate: spinValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }]} />
                               <Text style={styles.verifyButtonText}>전송 중...</Text>
                             </View>
                           ) : (
@@ -400,7 +411,7 @@ export default function SignupScreen() {
                             >
                               {verifying ? (
                                 <View style={styles.loadingContainer}>
-                                  <View style={styles.loadingSpinner} />
+                                  <Animated.View style={[styles.loadingSpinner, { transform: [{ rotate: spinValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }]} />
                                   <Text style={styles.confirmButtonText}>확인 중...</Text>
                                 </View>
                               ) : (
@@ -478,7 +489,7 @@ export default function SignupScreen() {
                           setPassword(text);
                           clearErrors();
                         }}
-                        secureTextEntry={!showConfirmPassword}
+                        secureTextEntry={!showPassword}
                         autoCapitalize="none"
                         autoCorrect={false}
                         returnKeyType="next"
@@ -487,14 +498,14 @@ export default function SignupScreen() {
                         style={styles.textInput}
                       />
                       <TouchableOpacity
-                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onPress={() => setShowPassword(!showPassword)}
                         style={styles.eyeIcon}
                         activeOpacity={0.7}
                       >
-                        <Ionicons 
-                          name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
-                          size={18} 
-                          color="#8E9AAF" 
+                        <Ionicons
+                          name={showPassword ? "eye-outline" : "eye-off-outline"}
+                          size={18}
+                          color="#8E9AAF"
                         />
                       </TouchableOpacity>
                       {password && validatePassword(password) && (
@@ -525,7 +536,7 @@ export default function SignupScreen() {
                           setConfirmPassword(text);
                           clearErrors();
                         }}
-                        secureTextEntry={!showPassword}
+                        secureTextEntry={!showConfirmPassword}
                         autoCapitalize="none"
                         autoCorrect={false}
                         returnKeyType="next"
@@ -534,14 +545,14 @@ export default function SignupScreen() {
                         style={styles.textInput}
                       />
                       <TouchableOpacity
-                        onPress={() => setShowPassword(!showPassword)}
+                        onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                         style={styles.eyeIcon}
                         activeOpacity={0.7}
                       >
-                        <Ionicons 
-                          name={showPassword ? "eye-outline" : "eye-off-outline"} 
-                          size={18} 
-                          color="#8E9AAF" 
+                        <Ionicons
+                          name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
+                          size={18}
+                          color="#8E9AAF"
                         />
                       </TouchableOpacity>
                       {confirmPassword && validateConfirmPassword(confirmPassword) && (

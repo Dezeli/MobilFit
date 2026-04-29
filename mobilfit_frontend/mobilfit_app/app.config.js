@@ -3,7 +3,7 @@ export default {
     name: 'Mobilfit',
     slug: 'mobilfit',
     scheme: 'mobilfit',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     icon: './assets/images/icon.png',
@@ -14,14 +14,14 @@ export default {
     },
     ios: {
       supportsTablet: false,
-      buildNumber: '3',
+      buildNumber: '4',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           '정확한 경로 추천을 위해 사용자의 위치 정보가 필요합니다.',
       },
     },
     android: {
-      versionCode: 3,
+      versionCode: 4,
       package: 'kr.mobilfit.app',
       permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
       config: {
@@ -50,13 +50,16 @@ export default {
     },
 
     plugins: [
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
       [
-        'expo-build-properties',
+        "expo-build-properties",
         {
           android: {
-            cmakeVersion: '3.22.1',
-            ndkVersion: '23.1.7779620',
-            buildToolsVersion: '34.0.0',
+            cmakeVersion: "3.22.1",
+            ndkVersion: "23.1.7779620",
+            buildToolsVersion: "34.0.0",
           },
         },
       ],

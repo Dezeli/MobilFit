@@ -395,17 +395,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 14,
   },
-  noticeHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  noticeTitle: {
-    fontSize: 16,
-    fontFamily: 'Cafe24',
-    fontWeight: '600',
-    color: '#2c3e50',
-    marginLeft: 8,
-  },
   noticeCard: {
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
@@ -526,67 +515,6 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: '#e8e8e8',
-  },
-  envHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  envTitle: {
-    fontSize: 12,
-    fontFamily: 'Cafe24',
-    fontWeight: '600',
-    color: '#2c3e50',
-    marginTop: 8,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  envValue: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '500',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  visualSection: {
-    marginBottom: 4,
-  },
-  visualLabel: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  visualContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    marginVertical: 6,
-  },
-  visualIcon: {
-    fontSize: 16,
-  },
-  moreText: {
-    fontSize: 12,
-    color: '#4CAF50',
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
-  savingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  savingAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#2c3e50',
-    marginRight: 6,
-  },
-  iconRowContainer: {
-    flexDirection: 'row',
   },
   envInfoLine: {
     fontSize: 11,

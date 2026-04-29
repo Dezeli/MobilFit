@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, StatusBar, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 import { apiPost } from "../../lib/api";
+import { validateEmail } from "../../lib/utils";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect } from "react";
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,11 +40,6 @@ export default function FindIdScreen() {
       keyboardDidShowListener?.remove();
     };
   }, []);
-
-  const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
 
   const handleFindId = async () => {
     setErrorMessage("");

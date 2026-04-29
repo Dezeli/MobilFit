@@ -1,12 +1,11 @@
-import { useState, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, StatusBar, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Keyboard } from "react-native";
+import { useState, useRef, useEffect } from "react";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, StatusBar, Image, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Keyboard, Animated, Easing } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { Redirect, useRouter } from "expo-router";
 import { apiPost, apiGet } from "../../lib/api";
 import * as SecureStore from "expo-secure-store";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect } from "react";
 
 const { width, height } = Dimensions.get('window');
 
@@ -22,6 +21,22 @@ export default function LoginScreen() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [loginError, setLoginError] = useState("");
+  const spinValue = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (loading) {
+      Animated.loop(
+        Animated.timing(spinValue, {
+          toValue: 1,
+          duration: 800,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      spinValue.setValue(0);
+    }
+  }, [loading]);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener(
@@ -225,7 +240,7 @@ export default function LoginScreen() {
                   >
                     {loading ? (
                       <View style={styles.loadingContainer}>
-                        <View style={styles.loadingSpinner} />
+                        <Animated.View style={[styles.loadingSpinner, { transform: [{ rotate: spinValue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] }]} />
                         <Text style={styles.loginButtonText}>로그인 중...</Text>
                       </View>
                     ) : (

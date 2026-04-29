@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert
 import { useAuth } from "../../contexts/AuthContext";
 import { Redirect, useRouter } from "expo-router";
 import { apiGet } from "../../lib/api";
+import { formatTime } from "../../lib/utils";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from "expo-secure-store";
@@ -46,15 +47,6 @@ export default function RideLogsScreen() {
     setRefreshing(true);
     await fetchRideLogs();
     setRefreshing(false);
-  };
-
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}시간 ${minutes}분`;
-    }
-    return `${minutes}분`;
   };
 
   const formatDateTime = (dateString: string) => {
@@ -109,7 +101,7 @@ export default function RideLogsScreen() {
 
         <View style={styles.introContainer}>
           <Text style={styles.introText}>
-            총 {rideLogs.length}회의 주행 기록이 있습니다.
+            최근 2주간 {rideLogs.length}회의 주행 기록이 있습니다.
           </Text>
         </View>
 

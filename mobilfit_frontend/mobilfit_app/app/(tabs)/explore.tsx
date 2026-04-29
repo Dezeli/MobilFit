@@ -1817,16 +1817,6 @@ const styles = StyleSheet.create({
     color: '#2c3e50',
     textAlign: 'center',
   },
-  stepContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-  },
-  stepText: {
-    fontSize: 12,
-    color: '#666',
-    textAlign: 'center',
-  },
   routeState: {
     flex: 1,
   },
@@ -1896,36 +1886,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#4CAF50',
-  },
-  toggleIcon: {
-    fontSize: 16,
-  },
-  routeOptionsContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  routeOptionsContent: {
-    gap: 12,
-  },
-  optionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 15,
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e8e8e8',
-  },
-  activeOption: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
-  },
-  optionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-  },
-  activeOptionText: {
-    color: '#ffffff',
   },
   detailsContainer: {
     paddingHorizontal: 20,
@@ -2101,75 +2061,6 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: '#ffffff',
     textAlign: 'center',
-  },
-  fareChartItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  fareInfo: {
-    flex: 2,
-    minWidth: 70,
-  },
-  fareBarContainer: {
-    flex: 3,
-    height: 16,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  fareBar: {
-    height: '100%',
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
-  },
-  cheapestBar: {
-    backgroundColor: '#4CAF50',
-  },
-  expensiveBar: {
-    backgroundColor: '#FF5722',
-  },
-  normalBar: {
-    backgroundColor: '#87CEEB',
-  },
-  selectButton: {
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: '#f8f9fa',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  selectButtonText: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#666',
-  },
-  fareName: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#333',
-  },
-  farePrice: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#333',
-  },
-  cheapestText: {
-    color: '#4CAF50',
-  },
-  expensiveText: {
-    color: '#FF5722',
-  },
-  normalText: {
-    color: '#666',
-  },
-  cheapestButton: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
-  },
-  cheapestButtonText: {
-    color: '#ffffff',
   },
   loadingState: {
     flex: 1,

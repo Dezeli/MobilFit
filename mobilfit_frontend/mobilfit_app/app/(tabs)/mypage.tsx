@@ -79,8 +79,9 @@ export default function MyPageScreen() {
                 await SecureStore.deleteItemAsync("accessToken");
                 await SecureStore.deleteItemAsync("refreshToken");
                 setUser(null);
-                Alert.alert("완료", "회원 탈퇴가 완료되었습니다.");
-                router.replace("/auth/login");
+                Alert.alert("완료", "회원 탈퇴가 완료되었습니다.", [
+                  { text: "확인", onPress: () => router.replace("/auth/login") }
+                ]);
               } else {
                 throw new Error("회원 탈퇴 요청이 실패했습니다.");
               }
@@ -475,21 +476,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
-  },
-  footerContainer: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: '#8E9AAF',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  footerSubText: {
-    fontSize: 12,
-    color: '#ADB5BD',
-    fontWeight: '500',
   },
 });

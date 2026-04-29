@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Activ
 import { useAuth } from "../../contexts/AuthContext";
 import { Redirect } from "expo-router";
 import { apiGet } from "../../lib/api";
+import { formatTime } from "../../lib/utils";
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from "expo-secure-store";
@@ -107,15 +108,6 @@ export default function RankingScreen() {
     setRefreshing(true);
     await fetchRankingData();
     setRefreshing(false);
-  };
-
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (hours > 0) {
-      return `${hours}시간 ${minutes}분`;
-    }
-    return `${minutes}분`;
   };
 
   const formatValue = (value: number, unit: string) => {
