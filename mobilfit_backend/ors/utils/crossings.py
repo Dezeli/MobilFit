@@ -20,7 +20,8 @@ def get_crossings_from_overpass(bbox: list[float]) -> list[dict]:
         res = requests.post(
             "https://overpass-api.de/api/interpreter",
             headers={"Content-Type": "text/plain"},
-            data=query
+            data=query,
+            timeout=10
         )
         res.raise_for_status()
         data = res.json()

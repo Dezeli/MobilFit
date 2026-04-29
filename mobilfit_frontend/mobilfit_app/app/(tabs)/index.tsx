@@ -17,12 +17,16 @@ export default function HomeScreen() {
   const [myPageData, setMyPageData] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchAllData = async () => {
     if (!isAuthenticated) {
       setDataLoading(false);
       return;
     }
+
+    let anyFailure = false;
 
     try {
       const accessToken = await SecureStore.getItemAsync("accessToken");
@@ -32,8 +36,7 @@ export default function HomeScreen() {
       }
 
       try {
-        const noticeRes = await fetch(`${API_BASE_URL}/api/v1/auth/notices/`);
-        const noticeData = await noticeRes.json();
+        const noticeData = await apiGet("/api/v1/auth/notices/", accessToken);
         setNotices(noticeData?.data?.result || noticeData?.data || []);
       } catch (error) {
         setNotices([]);
@@ -44,6 +47,7 @@ export default function HomeScreen() {
         setUserInfo(meRes?.data?.result || meRes?.data || {});
       } catch (error) {
         setUserInfo({});
+        anyFailure = true;
       }
 
       try {
@@ -51,6 +55,7 @@ export default function HomeScreen() {
         setUserGrade(gradeRes?.data?.result || gradeRes?.data || {});
       } catch (error) {
         setUserGrade({});
+        anyFailure = true;
       }
 
       try {
@@ -58,12 +63,16 @@ export default function HomeScreen() {
         setMyPageData(myPageRes?.data?.result || myPageRes?.data || {});
       } catch (error) {
         setMyPageData({});
+        anyFailure = true;
       }
 
     } catch (error) {
       setDataLoading(false);
+      anyFailure = true;
     } finally {
       setDataLoading(false);
+      setHasLoadedOnce(true);
+      setLoadError(anyFailure);
     }
   };
 
@@ -98,11 +107,11 @@ export default function HomeScreen() {
     }
   };
 
-  if (isLoading || dataLoading) {
+  if ((isLoading || dataLoading) && !hasLoadedOnce) {
     return (
       <View style={styles.loadingContainer}>
-        <Image 
-          source={require('../../assets/images/mobilfit_logo.png')} 
+        <Image
+          source={require('../../assets/images/mobilfit_logo.png')}
           style={styles.loadingLogo}
           resizeMode="contain"
         />
@@ -245,6 +254,13 @@ export default function HomeScreen() {
               </View>
             ))}
           </ScrollView>
+        </View>
+      )}
+
+      {loadError && (
+        <View style={styles.loadErrorBanner}>
+          <Ionicons name="cloud-offline-outline" size={16} color="#E65100" />
+          <Text style={styles.loadErrorText}>일부 데이터를 불러오지 못했어요. 아래로 당겨 새로고침해주세요.</Text>
         </View>
       )}
 
@@ -522,5 +538,24 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     marginTop: 8,
+  },
+  loadErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    borderLeftWidth: 3,
+    borderLeftColor: '#FB8C00',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginHorizontal: 20,
+    marginBottom: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  loadErrorText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#E65100',
+    fontWeight: '500',
   },
 });

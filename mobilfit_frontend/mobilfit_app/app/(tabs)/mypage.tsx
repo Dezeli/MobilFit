@@ -15,6 +15,7 @@ export default function MyPageScreen() {
   const [myPageData, setMyPageData] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   const router = useRouter();
 
   const fetchUserData = async () => {
@@ -28,9 +29,11 @@ export default function MyPageScreen() {
       const myPageRes = await apiGet("/api/v1/auth/user/mypage/", accessToken);
       setMyPageData(myPageRes?.data?.result || myPageRes?.data || {});
 
+      setLoadError(false);
     } catch (error) {
-      setUserInfo({});
-      setMyPageData({});
+      setUserInfo((prev: any) => prev ?? {});
+      setMyPageData((prev: any) => prev ?? {});
+      setLoadError(true);
     } finally {
       setDataLoading(false);
     }
@@ -174,6 +177,13 @@ export default function MyPageScreen() {
           </View>
         </View>
       </LinearGradient>
+
+      {loadError && (
+        <View style={styles.loadErrorBanner}>
+          <Ionicons name="cloud-offline-outline" size={16} color="#E65100" />
+          <Text style={styles.loadErrorText}>일부 정보를 불러오지 못했어요. 아래로 당겨 새로고침해주세요.</Text>
+        </View>
+      )}
 
       <View style={styles.infoContainer}>
         <View style={styles.sectionTitleContainer}>
@@ -476,5 +486,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
+  },
+  loadErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    borderLeftWidth: 3,
+    borderLeftColor: '#FB8C00',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginHorizontal: 24,
+    marginBottom: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  loadErrorText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#E65100',
+    fontWeight: '500',
   },
 });

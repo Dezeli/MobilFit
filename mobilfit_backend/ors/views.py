@@ -46,7 +46,7 @@ def combined_search(request):
     address_url = "https://dapi.kakao.com/v2/local/search/address.json"
     keyword_url = "https://dapi.kakao.com/v2/local/search/keyword.json"
 
-    addr_res = requests.get(address_url, headers=KAKAO_HEADERS, params={"query": query})
+    addr_res = requests.get(address_url, headers=KAKAO_HEADERS, params={"query": query}, timeout=10)
     addr_docs = addr_res.json().get("documents", [])
 
     address_result = None
@@ -71,7 +71,7 @@ def combined_search(request):
         "sort": "accuracy",
         "size": 15
     }
-    place_res = requests.get(keyword_url, headers=KAKAO_HEADERS, params=keyword_params)
+    place_res = requests.get(keyword_url, headers=KAKAO_HEADERS, params=keyword_params, timeout=10)
     place_docs = place_res.json().get("documents", [])
 
     place_results = []

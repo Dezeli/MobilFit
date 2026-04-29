@@ -19,6 +19,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [idFocused, setIdFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [idTouched, setIdTouched] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [loginError, setLoginError] = useState("");
   const spinValue = useRef(new Animated.Value(0)).current;
@@ -68,6 +69,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setLoginError("");
 
+    setIdTouched(true);
     if (!loginId || !password) {
       setLoginError("아이디와 비밀번호를 입력하세요.");
       return;
@@ -87,7 +89,7 @@ export default function LoginScreen() {
       await SecureStore.setItemAsync("refreshToken", refreshToken);
 
       const userInfo = await apiGet("/api/v1/auth/me/", accessToken);
-      setUser(userInfo);
+      setUser(userInfo?.data?.result || userInfo?.data || userInfo);
 
       router.replace("/(tabs)");
     } catch (error: any) {
@@ -134,18 +136,18 @@ export default function LoginScreen() {
               <View style={styles.formContainer}>
                 
                 <View style={styles.inputGroup}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={[
                       styles.inputContainer,
                       idFocused && styles.inputContainerFocused,
-                      loginId && !validateId(loginId) && styles.inputContainerError
+                      idTouched && loginId && !validateId(loginId) && styles.inputContainerError
                     ]}
                     activeOpacity={1}
                   >
-                    <Ionicons 
-                      name="person-outline" 
-                      size={20} 
-                      color={idFocused ? "#52C41A" : "#8E9AAF"} 
+                    <Ionicons
+                      name="person-outline"
+                      size={20}
+                      color={idFocused ? "#52C41A" : "#8E9AAF"}
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -160,7 +162,10 @@ export default function LoginScreen() {
                       autoCorrect={false}
                       returnKeyType="next"
                       onFocus={() => setIdFocused(true)}
-                      onBlur={() => setIdFocused(false)}
+                      onBlur={() => {
+                        setIdFocused(false);
+                        if (loginId.length > 0) setIdTouched(true);
+                      }}
                       style={styles.textInput}
                     />
                     {loginId && validateId(loginId) && (
@@ -212,7 +217,7 @@ export default function LoginScreen() {
                       />
                     </TouchableOpacity>
                   </TouchableOpacity>
-                  {loginId && !validateId(loginId) && (
+                  {idTouched && loginId && !validateId(loginId) && (
                     <Text style={styles.errorText}>아이디는 3자 이상 입력하세요</Text>
                   )}
                   {loginError && (

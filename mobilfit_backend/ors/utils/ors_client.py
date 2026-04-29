@@ -21,7 +21,7 @@ def get_route_from_ors(start: dict, end: dict, profile: str, preference: str) ->
     try:
         # URL에 profile 적용
         url = f"https://api.openrouteservice.org/v2/directions/{profile}/geojson"
-        res = requests.post(url, headers=headers, json=body)
+        res = requests.post(url, headers=headers, json=body, timeout=10)
         res.raise_for_status()
         data = res.json()["features"][0]
 
@@ -85,7 +85,8 @@ def get_elevations_from_ors(coords: list[list[float]]) -> list[float]:
         res = requests.post(
             "https://api.openrouteservice.org/elevation/line",
             headers=headers,
-            json=body
+            json=body,
+            timeout=10
         )
         res.raise_for_status()
         geojson = res.json()["geometry"]["coordinates"]

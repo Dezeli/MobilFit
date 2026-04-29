@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, GestureResponderEvent, Image, Alert, Platform, TextInput, Keyboard, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Text, TouchableOpacity, Animated, Dimensions, GestureResponderEvent, Image, Alert, Platform, TextInput, Keyboard, ActivityIndicator, Linking } from "react-native";
 import * as Location from "expo-location";
 import { WebView, WebViewMessageEvent } from "react-native-webview";
 import { apiPost, apiGet } from "../../lib/api";
@@ -694,7 +694,7 @@ const Explore: React.FC = () => {
       const response = await apiPost("/api/v1/ors/route/", {
         start: { lat: start.lat, lng: start.lng },
         end: { lat: end.lat, lng: end.lng }
-      });
+      }, accessToken);
 
       if (!response.success || !response.data) {
         throw new Error("경로 탐색 API 응답 오류");
@@ -876,16 +876,36 @@ const Explore: React.FC = () => {
         return;
       }
     } catch (err) {
-      Alert.alert("오류", "문제가 발생했습니다.");
+      console.warn("WebView message parse failed", err);
     }
   };
 
   const getCurrentLocation = async () => {
     setIsLocating(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+      const current = await Location.getForegroundPermissionsAsync();
+      let status = current.status;
+      let canAskAgain = current.canAskAgain;
+
+      if (status !== 'granted' && canAskAgain) {
+        const requested = await Location.requestForegroundPermissionsAsync();
+        status = requested.status;
+        canAskAgain = requested.canAskAgain;
+      }
+
       if (status !== 'granted') {
-        Alert.alert('권한 필요', '위치 권한이 필요합니다.');
+        if (!canAskAgain) {
+          Alert.alert(
+            '위치 권한이 차단되어 있어요',
+            '현재 위치를 사용하려면 설정에서 위치 권한을 허용해주세요.',
+            [
+              { text: '취소', style: 'cancel' },
+              { text: '설정으로 이동', onPress: () => Linking.openSettings() },
+            ]
+          );
+        } else {
+          Alert.alert('권한 필요', '현재 위치를 사용하려면 위치 권한이 필요합니다.');
+        }
         return;
       }
 
@@ -983,7 +1003,6 @@ const Explore: React.FC = () => {
     if (!selectedProvider || !routeStartTime || !routeInfo) {
       return;
     }
-    setHasArrived(true);
     const endTime = new Date();
     const actualDurationMinutes = (endTime.getTime() - routeStartTime.getTime()) / (1000 * 60);
     const expectedDurationMinutes = routeInfo.adjustedTimeMin;
@@ -991,7 +1010,7 @@ const Explore: React.FC = () => {
 
     let scoreChange = 0;
     let message = "";
-    
+
     if (timeDifferenceMinutes <= 3) {
       scoreChange = 1;
       message = "훌륭합니다! 예상 시간에 정확히 도착했어요!";
@@ -1010,6 +1029,7 @@ const Explore: React.FC = () => {
     try {
       const accessToken = await SecureStore.getItemAsync("accessToken");
       if (!accessToken) {
+        Alert.alert("로그인이 필요합니다", "다시 로그인 후 시도해주세요.");
         return;
       }
 
@@ -1027,8 +1047,14 @@ const Explore: React.FC = () => {
         distance_km: routeInfo.distance / 1000,
         score_delta: scoreChange
       }, accessToken);
+
+      setHasArrived(true);
     } catch (error) {
-      Alert.alert("오류", "문제가 발생했습니다.");
+      Alert.alert(
+        "기록 저장 실패",
+        "도착 기록을 저장하지 못했습니다. 다시 시도해주세요.",
+        [{ text: "확인" }]
+      );
     }
   };
   const getDynamicSavings = () => {
@@ -1056,7 +1082,21 @@ const Explore: React.FC = () => {
               onSubmitEditing={() => searchPlaces(searchQuery)}
               returnKeyType="search"
             />
-            <TouchableOpacity 
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                style={styles.searchClearButton}
+                onPress={() => {
+                  setSearchQuery("");
+                  setSearchResults([]);
+                  setHasNoSearchResults(false);
+                  setSearchError("");
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.searchClearButtonText}>✕</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
               style={styles.searchButton}
               onPress={() => searchPlaces(searchQuery)}
               disabled={isSearching}
@@ -1206,6 +1246,7 @@ const Explore: React.FC = () => {
                       <View style={styles.noResultsTips}>
                         <Text style={styles.noResultsTipText}>• 정확한 장소명이나 주소를 입력해보세요</Text>
                         <Text style={styles.noResultsTipText}>• 지역명을 함께 입력해보세요</Text>
+                        <Text style={styles.noResultsTipText}>• 지도를 다른 위치로 옮긴 뒤 다시 검색해보세요</Text>
                         <Text style={styles.noResultsTipText}>• 지도에서 직접 위치를 선택해보세요</Text>
                       </View>
                     </View>
@@ -1596,6 +1637,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#80a0c7ff',
     borderRadius: 12,
   },
+  searchClearButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E0E0E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  searchClearButtonText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: 'bold',
+    lineHeight: 14,
+  },
   searchButtonText: {
     fontSize: 10,
     fontWeight: '600',
@@ -1689,6 +1745,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 10,
     overflow: 'hidden',
+    zIndex: 10,
   },
   bottomSheetContent: {
     flex: 1,
@@ -2188,7 +2245,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 5,
-    zIndex: 100,
+    zIndex: 1,
   },
   myLocationIcon: {
     width: 24,

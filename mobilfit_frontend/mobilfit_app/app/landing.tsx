@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,12 +11,26 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { getItem } from '../lib/api';
 
 const { width } = Dimensions.get('window');
 
 export default function LandingScreen() {
   const [currentPage, setCurrentPage] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const refreshToken = await getItem('refreshToken');
+        if (refreshToken) {
+          router.replace('/(tabs)');
+        }
+      } catch {
+      }
+    };
+    checkAuth();
+  }, []);
 
   const handleScroll = (event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
