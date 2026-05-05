@@ -8,6 +8,8 @@ import Constants from "expo-constants";
 
 const { width: screenWidth } = Dimensions.get('window');
 
+const SEARCH_PLACEHOLDER = "장소나 주소를 검색하세요";
+
 const LEAFLET_HTML = `
 <!DOCTYPE html>
 <html>
@@ -261,6 +263,7 @@ const Explore: React.FC = () => {
   const [hasArrived, setHasArrived] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -292,6 +295,7 @@ const Explore: React.FC = () => {
     ROUTE_MAX: 400,
   };
   const webViewRef = useRef<any>(null);
+  const searchInputRef = useRef<TextInput>(null);
   const bottomSheetHeight = useRef(new Animated.Value(BOTTOM_SHEET_HEIGHTS.INITIAL)).current;
   const spinValue = useRef(new Animated.Value(0)).current;
   const scaleValue = useRef(new Animated.Value(1)).current;
@@ -465,6 +469,22 @@ const Explore: React.FC = () => {
     setIsRouteFixed(false);
   };
 
+  const clearSearchOnly = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setHasNoSearchResults(false);
+    setSearchError("");
+    setCurrentSearchPage(0);
+    setIsSearchFocused(false);
+    Keyboard.dismiss();
+    setIsMinimized(true);
+    Animated.spring(bottomSheetHeight, {
+      toValue: BOTTOM_SHEET_HEIGHTS.INITIAL,
+      useNativeDriver: false,
+    }).start();
+  };
+
   const completeMapSelection = () => {
     setIsSelectingStart(false);
     setIsSelectingEnd(false);
@@ -499,8 +519,7 @@ const Explore: React.FC = () => {
     const newEndPoint = type === 'end' ? point : endPoint;
     
     if (newStartPoint && newEndPoint) {
-      setShowSearchResults(false);
-      setHasNoSearchResults(false);
+      clearSearchOnly();
       Animated.spring(bottomSheetHeight, {
         toValue: BOTTOM_SHEET_HEIGHTS.LOADING,
         useNativeDriver: false,
@@ -508,6 +527,7 @@ const Explore: React.FC = () => {
         drawAllRoutes(newStartPoint, newEndPoint);
       });
     } else {
+      clearSearchOnly();
       Animated.spring(bottomSheetHeight, {
         toValue: BOTTOM_SHEET_HEIGHTS.SEARCH_MIN,
         useNativeDriver: false,
@@ -1074,23 +1094,37 @@ const Explore: React.FC = () => {
       {showTopBars && (
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="장소나 주소를 검색하세요"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onSubmitEditing={() => searchPlaces(searchQuery)}
-              returnKeyType="search"
-            />
+              <View style={styles.searchInputWrap}>
+                <TextInput
+                  ref={searchInputRef}
+                  style={styles.searchInput}
+                  placeholder=""
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  onSubmitEditing={() => searchPlaces(searchQuery)}
+                  returnKeyType="search"
+                  selectionColor="#4CAF50"
+                  underlineColorAndroid="transparent"
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setIsSearchFocused(false)}
+                />
+                {searchQuery.length === 0 && !isSearchFocused && (
+                  <TouchableOpacity
+                    style={styles.searchFakeInput}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setIsSearchFocused(true);
+                      searchInputRef.current?.focus();
+                    }}
+                  >
+                    <Text style={styles.searchFakeInputText}>{SEARCH_PLACEHOLDER}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             {searchQuery.length > 0 && (
               <TouchableOpacity
                 style={styles.searchClearButton}
-                onPress={() => {
-                  setSearchQuery("");
-                  setSearchResults([]);
-                  setHasNoSearchResults(false);
-                  setSearchError("");
-                }}
+                onPress={clearSearchOnly}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Text style={styles.searchClearButtonText}>✕</Text>
@@ -1109,7 +1143,7 @@ const Explore: React.FC = () => {
         </View>
       )}
 
-      {showTopBars && (
+      {showTopBars && !showSearchResults && (
         <View style={styles.pointSelectionContainer}>
           <View style={styles.pointSelectionBar}>
             <View style={styles.pointRow}>
@@ -1241,12 +1275,12 @@ const Explore: React.FC = () => {
                       </View>
                       <Text style={styles.noResultsTitle}>검색 결과가 없습니다</Text>
                       <Text style={styles.noResultsSubtitle}>
-                        {searchError || "다른 키워드로 다시 검색해보세요"}
+                        {searchError || "검색어를 조금 더 구체적으로 입력해보세요"}
                       </Text>
                       <View style={styles.noResultsTips}>
-                        <Text style={styles.noResultsTipText}>• 정확한 장소명이나 주소를 입력해보세요</Text>
-                        <Text style={styles.noResultsTipText}>• 지역명을 함께 입력해보세요</Text>
-                        <Text style={styles.noResultsTipText}>• 지도를 다른 위치로 옮긴 뒤 다시 검색해보세요</Text>
+                        <Text style={styles.noResultsTipText}>• 장소명 뒤에 지역명을 함께 입력해보세요</Text>
+                        <Text style={styles.noResultsTipText}>• 건물명 대신 도로명 주소로 검색해보세요</Text>
+                        <Text style={styles.noResultsTipText}>• 지도를 원하는 지역으로 옮긴 뒤 다시 검색해보세요</Text>
                         <Text style={styles.noResultsTipText}>• 지도에서 직접 위치를 선택해보세요</Text>
                       </View>
                     </View>
@@ -1255,8 +1289,8 @@ const Explore: React.FC = () => {
                       {getCurrentPageResults().map((result, index) => (
                         <View key={index} style={styles.searchResultItem}>
                           <View style={styles.resultInfo}>
-                            <Text style={styles.resultName}>{result.name}</Text>
-                            <Text style={styles.resultAddress}>{result.address}</Text>
+                            <Text style={styles.resultName} numberOfLines={1}>{result.name}</Text>
+                            <Text style={styles.resultAddress} numberOfLines={1}>{result.address}</Text>
                           </View>
                           <View style={styles.resultButtons}>
                             <TouchableOpacity 
@@ -1605,7 +1639,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     position: 'absolute',
-    top: Constants.statusBarHeight - 15,
+    top: Constants.statusBarHeight + 8,
     left: 20,
     right: 20,
     zIndex: 1000,
@@ -1630,6 +1664,32 @@ const styles = StyleSheet.create({
     fontFamily: 'Cafe24',
     color: '#2c3e50',
     paddingRight: 12,
+    backgroundColor: 'transparent',
+    paddingVertical: 0,
+    zIndex: 1,
+  },
+  searchInputWrap: {
+    flex: 1,
+    height: 44,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  searchFakeInput: {
+    position: 'absolute',
+    left: 0,
+    right: 12,
+    top: 0,
+    bottom: 0,
+    height: 44,
+    justifyContent: 'center',
+    paddingRight: 12,
+    zIndex: 3,
+    elevation: 3,
+  },
+  searchFakeInputText: {
+    fontSize: 14,
+    fontFamily: 'Cafe24',
+    color: '#7A8793',
   },
   searchButton: {
     paddingVertical: 8,
@@ -1659,7 +1719,7 @@ const styles = StyleSheet.create({
   },
   pointSelectionContainer: {
     position: 'absolute',
-    top: Constants.statusBarHeight + 45,
+    top: Constants.statusBarHeight + 70,
     left: 20,
     right: 20,
     zIndex: 999,
@@ -1703,24 +1763,24 @@ const styles = StyleSheet.create({
     marginVertical: 2,
   },
   mapSelectButton1: {
-    paddingVertical: 3,
-    paddingHorizontal: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     backgroundColor: '#4CAF50',
-    borderRadius: 5,
-    minWidth: 50,
+    borderRadius: 7,
+    minWidth: 58,
   },
   mapSelectButton2: {
-    paddingVertical: 3,
-    paddingHorizontal: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
     backgroundColor: '#FF9800',
-    borderRadius: 5,
-    minWidth: 50,
+    borderRadius: 7,
+    minWidth: 58,
   },
   mapSelectButtonActive: {
     backgroundColor: '#999',
   },
   mapSelectButtonText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: '600',
     color: '#ffffff',
     textAlign: 'center',
@@ -1758,14 +1818,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   searchResultsTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Cafe24',
     color: '#666',
     marginBottom: 2,
   },
   searchResultsCount: {
     fontSize: 12,
-    color: '#999',
+    color: '#6C757D',
     marginBottom: 4,
   },
   searchResultsIndicators: {
@@ -1775,20 +1835,21 @@ const styles = StyleSheet.create({
   searchResultsContainer: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 8,
   },
   searchResultsGrid: {
-    gap: 12,
+    gap: 8,
   },
   searchResultItem: {
     backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderWidth: 1,
     borderColor: '#e8e8e8',
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 58,
   },
   resultInfo: {
     flex: 1,
@@ -1798,22 +1859,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Cafe24',
     color: '#2c3e50',
-    marginBottom: 2,
+    marginBottom: 1,
   },
   resultAddress: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 11,
+    color: '#495057',
+    lineHeight: 15,
   },
   resultButtons: {
     flexDirection: 'column',
-    gap: 2,
+    gap: 3,
   },
   setPointButton: {
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 6,
     alignItems: 'center',
-    minWidth: 40,
+    minWidth: 44,
   },
   startPointButton: {
     backgroundColor: '#4CAF50',
@@ -1848,7 +1910,7 @@ const styles = StyleSheet.create({
   },
   noResultsSubtitle: {
     fontSize: 14,
-    color: '#999',
+    color: '#6C757D',
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -1857,7 +1919,7 @@ const styles = StyleSheet.create({
   },
   noResultsTipText: {
     fontSize: 12,
-    color: '#666',
+    color: '#495057',
     marginBottom: 4,
     textAlign: 'left',
   },
@@ -1897,7 +1959,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   routeTypeLabel: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Cafe24',
     color: '#666',
     marginBottom: 4,

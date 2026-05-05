@@ -28,7 +28,7 @@ export default function TermsPrivacyScreen() {
       <View style={styles.articleContainer}>
         <Text style={styles.articleTitle}>제1조 (목적)</Text>
         <Text style={styles.articleContent}>
-          이 약관은 모빌리티메이트(이하 "회사")가 제공하는 '모빌핏' 앱 이용과 관련하여 회사와 회원 간의 권리, 의무, 책임사항을 규정합니다.
+          이 약관은 모빌리티메이트(이하 회사)가 제공하는 모빌핏 앱 이용과 관련하여 회사와 회원 간의 권리, 의무, 책임사항을 규정합니다.
         </Text>
       </View>
 
@@ -128,7 +128,7 @@ export default function TermsPrivacyScreen() {
 
       <View style={styles.introContainer}>
         <Text style={styles.introText}>
-          모빌리티메이트(이하 "회사")는 개인정보 보호법 등 관련 법령을 준수하며, 회원님의 개인정보를 안전하게 보호하고자 아래와 같은 처리방침을 운영합니다.
+          모빌리티메이트(이하 회사)는 개인정보 보호법 등 관련 법령을 준수하며, 회원님의 개인정보를 안전하게 보호하고자 아래와 같은 처리방침을 운영합니다.
         </Text>
       </View>
 

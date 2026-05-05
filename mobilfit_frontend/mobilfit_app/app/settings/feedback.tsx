@@ -7,9 +7,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from "expo-secure-store";
 
+const FEEDBACK_CATEGORIES = [
+  { label: "버그 및 오류 신고", icon: "bug-outline", color: "#FF4D4F" },
+  { label: "새로운 기능 제안", icon: "megaphone-outline", color: "#FA8C16" },
+  { label: "사용성 개선 의견", icon: "trending-up-outline", color: "#1890FF" },
+  { label: "서비스 칭찬 및 응원", icon: "heart-outline", color: "#52C41A" },
+];
+
 export default function FeedbackScreen() {
   const { isAuthenticated, isLoading } = useAuth();
   const [feedbackText, setFeedbackText] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(FEEDBACK_CATEGORIES[2].label);
   const [sendingFeedback, setSendingFeedback] = useState(false);
   const router = useRouter();
 
@@ -22,13 +30,15 @@ export default function FeedbackScreen() {
     setSendingFeedback(true);
     try {
       const accessToken = await SecureStore.getItemAsync("accessToken");
-      await apiPost("/api/v1/auth/feedback/", { message: feedbackText }, accessToken);
+      const message = `[${selectedCategory}] ${feedbackText.trim()}`;
+      await apiPost("/api/v1/auth/feedback/", { message }, accessToken);
       
       Alert.alert("완료", "피드백이 성공적으로 전송되었습니다.", [
         {
           text: "확인",
           onPress: () => {
             setFeedbackText("");
+            setSelectedCategory(FEEDBACK_CATEGORIES[2].label);
             router.back();
           }
         }
@@ -85,37 +95,31 @@ export default function FeedbackScreen() {
 
           <View style={styles.introContainer}>
             <Text style={styles.introText}>
-              이런 피드백을 기다려요 !
+              피드백 유형을 선택해주세요
             </Text>
             <View>
-              <View style={styles.categoryRow}>
-                <View style={styles.categoryItem}>
-                  <View style={[styles.categoryIcon, { backgroundColor: '#F6FFED' }]}>
-                    <Ionicons name="bug-outline" size={14} color="#FF4D4F" />
-                  </View>
-                  <Text style={styles.categoryText}>버그 및 오류 신고</Text>
+              {[0, 2].map((startIndex) => (
+                <View key={startIndex} style={styles.categoryRow}>
+                  {FEEDBACK_CATEGORIES.slice(startIndex, startIndex + 2).map((category) => {
+                    const isSelected = selectedCategory === category.label;
+                    return (
+                      <TouchableOpacity
+                        key={category.label}
+                        style={[styles.categoryItem, isSelected && styles.categoryItemSelected]}
+                        activeOpacity={0.8}
+                        onPress={() => setSelectedCategory(category.label)}
+                      >
+                        <View style={[styles.categoryIcon, { backgroundColor: isSelected ? '#FFFFFF' : '#F6FFED' }]}>
+                          <Ionicons name={category.icon as any} size={14} color={category.color} />
+                        </View>
+                        <Text style={[styles.categoryText, isSelected && styles.categoryTextSelected]}>
+                          {category.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                <View style={styles.categoryItem}>
-                  <View style={[styles.categoryIcon, { backgroundColor: '#F6FFED' }]}>
-                    <Ionicons name="megaphone-outline" size={14} color="#FA8C16" />
-                  </View>
-                  <Text style={styles.categoryText}>새로운 기능 제안</Text>
-                </View>
-              </View>
-              <View style={styles.categoryRow}>
-                <View style={styles.categoryItem}>
-                  <View style={[styles.categoryIcon, { backgroundColor: '#F6FFED' }]}>
-                    <Ionicons name="trending-up-outline" size={14} color="#1890FF" />
-                  </View>
-                  <Text style={styles.categoryText}>사용성 개선 의견</Text>
-                </View>
-                <View style={styles.categoryItem}>
-                  <View style={[styles.categoryIcon, { backgroundColor: '#F6FFED' }]}>
-                    <Ionicons name="heart-outline" size={14} color="#52C41A" />
-                  </View>
-                  <Text style={styles.categoryText}>서비스 칭찬 및 응원</Text>
-                </View>
-              </View>
+              ))}
             </View>
           </View>
 
@@ -297,6 +301,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  categoryItemSelected: {
+    backgroundColor: '#52C41A',
+    borderColor: '#52C41A',
   },
   categoryIcon: {
     width: 36,
@@ -310,6 +322,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#495057',
     fontWeight: '500',
+    flex: 1,
+  },
+  categoryTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   contentContainer: {
     paddingHorizontal: 20,

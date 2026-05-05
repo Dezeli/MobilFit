@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, Alert, ActivityIndicator, RefreshControl, SafeAreaView, StatusBar } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Dimensions, ActivityIndicator, RefreshControl, SafeAreaView, StatusBar } from "react-native";
 import { useAuth } from "../../contexts/AuthContext";
 import { Redirect, useRouter } from "expo-router";
 import { apiGet } from "../../lib/api";
 import { formatTime } from "../../lib/utils";
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as SecureStore from "expo-secure-store";
 
@@ -110,7 +109,15 @@ export default function RideLogsScreen() {
             <View style={styles.noDataContainer}>
               <Ionicons name="bicycle-outline" size={48} color="#8E9AAF" />
               <Text style={styles.noDataTitle}>최근 2주간 주행 기록이 없습니다</Text>
-              <Text style={styles.noDataText}>첫 번째 라이딩을 시작해보세요!</Text>
+              <Text style={styles.noDataText}>경로를 검색하고 목적지 도착을 완료하면 기록이 저장됩니다.</Text>
+              <TouchableOpacity
+                style={styles.noDataButton}
+                activeOpacity={0.8}
+                onPress={() => router.push("/(tabs)/explore")}
+              >
+                <Ionicons name="map-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.noDataButtonText}>경로 검색하기</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.recordsContainer}>
@@ -303,6 +310,23 @@ const styles = StyleSheet.create({
     color: '#8E9AAF',
     fontWeight: '500',
     textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 18,
+  },
+  noDataButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#52C41A',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+  },
+  noDataButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginLeft: 6,
   },
   recordsContainer: {
     paddingHorizontal: 20,

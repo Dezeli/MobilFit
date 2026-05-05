@@ -3,7 +3,7 @@ export default {
     name: 'Mobilfit',
     slug: 'mobilfit',
     scheme: 'mobilfit',
-    version: '1.0.1',
+    version: '1.0.4',
     orientation: 'portrait',
     userInterfaceStyle: 'light',
     icon: './assets/images/icon.png',
@@ -14,14 +14,14 @@ export default {
     },
     ios: {
       supportsTablet: false,
-      buildNumber: '5',
+      buildNumber: '8',
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           '정확한 경로 추천을 위해 사용자의 위치 정보가 필요합니다.',
       },
     },
     android: {
-      versionCode: 5,
+      versionCode: 8,
       package: 'kr.mobilfit.app',
       permissions: ['ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION'],
       config: {

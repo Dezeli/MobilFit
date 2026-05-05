@@ -83,11 +83,11 @@ export default function SignupScreen() {
   };
 
   const validatePassword = (password) => {
-    return password.length >= 6;
+    return password.length >= 8;
   };
 
   const validateConfirmPassword = (confirmPassword) => {
-    return confirmPassword === password && password.length >= 6;
+    return confirmPassword === password && password.length >= 8;
   };
 
   const validateNickname = (nickname) => {
@@ -181,7 +181,7 @@ export default function SignupScreen() {
     }
     
     if (!validatePassword(password)) {
-      setErrorMessage("비밀번호는 6자 이상 입력하세요.");
+      setErrorMessage("비밀번호는 8자 이상 입력하세요.");
       return;
     }
     
@@ -342,7 +342,9 @@ export default function SignupScreen() {
                             </View>
                           ) : (
                             <View style={styles.buttonContent}>
-                              <Text style={styles.verifyButtonText}>인증 코드 보내기</Text>
+                              <Text style={styles.verifyButtonText}>
+                                {codeSent ? "인증 코드 다시 보내기" : "인증 코드 보내기"}
+                              </Text>
                               <Ionicons name="send" size={16} color="#FFFFFF" />
                             </View>
                           )}
@@ -351,6 +353,9 @@ export default function SignupScreen() {
 
                       {codeSent && (
                         <>
+                          <Text style={styles.helperText}>
+                            인증 메일이 보이지 않으면 스팸함을 확인하거나 코드를 다시 보내주세요.
+                          </Text>
                           <View style={styles.inputGroup}>
                             <TouchableOpacity 
                               style={[
@@ -844,6 +849,13 @@ const styles = StyleSheet.create({
     color: '#FF4D4F',
     marginTop: 4,
     fontWeight: '500',
+    marginLeft: 2,
+  },
+  helperText: {
+    fontSize: 11,
+    color: '#6C757D',
+    lineHeight: 16,
+    marginBottom: 8,
     marginLeft: 2,
   },
   verifyButton: {

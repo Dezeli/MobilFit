@@ -65,7 +65,7 @@ export default function LandingScreen() {
             <Text 
               style={styles.featureDesc}
               allowFontScaling={false}
-            >신호등, 자전거도로, 언덕 정보를 분석하여 가장 효율적인 전기 자전거 브랜드를 추천합니다.</Text>
+            >출발지와 목적지를 입력하면 신호등, 자전거도로, 언덕 정보를 분석해 이동하기 좋은 경로를 추천합니다.</Text>
           </View>
         </View>
 
@@ -75,7 +75,7 @@ export default function LandingScreen() {
             <Text 
               style={styles.featureDesc}
               allowFontScaling={false}
-            >내가 달린 거리와 절약한 금액을 바탕으로 친환경 가치를 실감할 수 있어요.</Text>
+            >내가 달린 거리와 절약한 금액을 CO₂ 절감량, 나무 환산, 커피값 절약으로 쉽게 확인할 수 있어요.</Text>
           </View>
           <View style={styles.featureImageContainer}>
             <Image 
@@ -191,7 +191,7 @@ export default function LandingScreen() {
           colors={['#e6f7ff', '#ffffff']}
           style={styles.reviewGradient}
         >
-          <Text style={styles.reviewText}>"교내 이동할 때 어떤 브랜드가 더 저렴한지 한눈에 보여서 정말 편해요!"</Text>
+          <Text style={styles.reviewText}>교내 이동할 때 어떤 브랜드가 더 저렴한지 한눈에 보여서 정말 편해요!</Text>
           <View style={styles.reviewHeader}>
             <Text style={styles.reviewPersonIcon}>- 👩‍🎓</Text>
             <Text style={styles.reviewName}>대학생 김 ○ ○</Text>
@@ -211,7 +211,7 @@ export default function LandingScreen() {
           colors={['#f6ffed', '#ffffff']}
           style={styles.reviewGradient}
         >
-          <Text style={styles.reviewText}>"택시비가 부담스러웠는데, 이제 브랜드별 요금까지 비교해서 정말 알뜰하게 이용해요!"</Text>
+          <Text style={styles.reviewText}>택시비가 부담스러웠는데, 이제 브랜드별 요금까지 비교해서 정말 알뜰하게 이용해요!</Text>
           <View style={styles.reviewHeader}>
             <Text style={styles.reviewPersonIcon}>- 🧑‍💼</Text>
             <Text style={styles.reviewName}>자취생 박 ☆ ☆</Text>
@@ -231,7 +231,7 @@ export default function LandingScreen() {
           colors={['#fff2e8', '#ffffff']}
           style={styles.reviewGradient}
         >
-          <Text style={styles.reviewText}>"환경도 생각하고 효율적으로 이동할 수 있어서 일석이조예요!"</Text>
+          <Text style={styles.reviewText}>환경도 생각하고 효율적으로 이동할 수 있어서 일석이조예요!</Text>
           <View style={styles.reviewHeader}>
             <Text style={styles.reviewPersonIcon}>- 👨‍💻</Text>
             <Text style={styles.reviewName}>직장인 이 △ △</Text>
@@ -302,8 +302,8 @@ export default function LandingScreen() {
       
       <View style={styles.ctaContent}>
         <Text style={styles.ctaSubtitle}>
-          가장 저렴하고 친환경적인{'\n'}
-          전기자전거 여행을 시작하세요
+          경로를 검색하고 요금을 비교해{'\n'}
+          더 알뜰한 전기자전거 이동을 시작하세요
         </Text>
         
         <TouchableOpacity 

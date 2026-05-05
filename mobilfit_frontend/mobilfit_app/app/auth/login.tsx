@@ -68,9 +68,10 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setLoginError("");
+    const trimmedLoginId = loginId.trim();
 
     setIdTouched(true);
-    if (!loginId || !password) {
+    if (!trimmedLoginId || !password) {
       setLoginError("아이디와 비밀번호를 입력하세요.");
       return;
     }
@@ -78,7 +79,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const res = await apiPost("/api/v1/auth/login/", {
-        username: loginId,
+        username: trimmedLoginId,
         password,
       });
 
