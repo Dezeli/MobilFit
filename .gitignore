@@ -19,6 +19,21 @@ env/
 
 # Environment variables
 .env
+.env.*
+!.env.example
+
+# Backups and database dumps
+*.dump
+*.sql
+*.tar
+*.tar.gz
+*.bak
+backups/
+
+# Runtime-generated Django artifacts
+mobilfit_backend/db.sqlite3
+mobilfit_backend/staticfiles/
+mobilfit_backend/media/
 
 # Mac
 .DS_Store
